@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='gcpy',
@@ -9,8 +9,9 @@ setup(
     license='LICENSE.txt',
     packages=['gcpy'],  #same as name
     install_requires=[
+        "resource", # should be preinstalled
+        "numpy", "scipy", "matplotlib", "pandas", # mostly preinstalled
         "tinydb >= 3.13.0",
-        "scipy >= 1.2.1",
         "numba >= 0.43",
         "peakutils"
     ], #external packages as dependencies

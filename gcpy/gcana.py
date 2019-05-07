@@ -133,8 +133,8 @@ def calcTreco(x, y, peaks = 3):
         RoI_high = t[roi['RoI_high']] if roi['RoI_high'] < len(t)-1 else t[-2]
         RoI_len = (RoI_high - RoI_low)
 
-        results['prefit_RoI_low'] = RoI_low
-        results['prefit_RoI_high'] = RoI_high
+        results['Treco_param_RoI_low'] = RoI_low
+        results['Treco_param_RoI_high'] = RoI_high
 
         # assign time and counts within RoI, copy for not overwriting
         tRoI = np.array(t[(t>RoI_low) & (t<RoI_high)])
@@ -225,67 +225,67 @@ def calcTreco(x, y, peaks = 3):
         return results
     
     # write the params and errors to the curve
-    results['prefit_redChi2'] = chi
+    results['Treco_param_redChi2'] = chi
     if len(peakIndices) > 3:
         param_offset = 1
     else:
         param_offset = 0
 
     # write peak positions
-    results['prefit_t5'] = params[2 + param_offset]
-    results['prefit_t5_std_dev'] = np.sqrt(cov[2 + param_offset, 2 + param_offset])
-    results['prefit_t4'] = results['prefit_t5']-params[1 + param_offset]
-    results['prefit_t4_std_dev'] = np.sqrt(results['prefit_t5_std_dev']**2 + np.sqrt(cov[1 + param_offset , 1 + param_offset])**2)
-    results['prefit_t3'] = results['prefit_t4']-params[param_offset]
-    results['prefit_t3_std_dev'] = np.sqrt(results['prefit_t4_std_dev']**2 + np.sqrt(cov[param_offset, param_offset])**2)
+    results['Treco_param_t5'] = params[2 + param_offset]
+    results['Treco_param_t5_std_dev'] = np.sqrt(cov[2 + param_offset, 2 + param_offset])
+    results['Treco_param_t4'] = results['Treco_param_t5']-params[1 + param_offset]
+    results['Treco_param_t4_std_dev'] = np.sqrt(results['Treco_param_t5_std_dev']**2 + np.sqrt(cov[1 + param_offset , 1 + param_offset])**2)
+    results['Treco_param_t3'] = results['Treco_param_t4']-params[param_offset]
+    results['Treco_param_t3_std_dev'] = np.sqrt(results['Treco_param_t4_std_dev']**2 + np.sqrt(cov[param_offset, param_offset])**2)
 
     # write sigmas
-    results['prefit_sigma3'] = params[3 + 2*param_offset]
+    results['Treco_param_sigma3'] = params[3 + 2*param_offset]
     
-    results['prefit_sigma3_std_dev'] = np.sqrt(cov[3 + 2*param_offset, 3 + 2*param_offset])
-    results['prefit_sigma4'] = results['prefit_sigma3'] + params[1 + 3 + 2*param_offset]
-    results['prefit_sigma4_std_dev'] = np.sqrt(results['prefit_sigma3_std_dev']**2 + np.sqrt(cov[1 + 3 + 2*param_offset , 1 + 3 + 2*param_offset])**2)
-    results['prefit_sigma5'] = results['prefit_sigma4'] + params[2 + 3 + 2*param_offset]
-    results['prefit_sigma5_std_dev'] = np.sqrt(results['prefit_sigma4_std_dev']**2 + np.sqrt(cov[2 + 3 + 2*param_offset, 2 + 3 + 2*param_offset])**2)
+    results['Treco_param_sigma3_std_dev'] = np.sqrt(cov[3 + 2*param_offset, 3 + 2*param_offset])
+    results['Treco_param_sigma4'] = results['Treco_param_sigma3'] + params[1 + 3 + 2*param_offset]
+    results['Treco_param_sigma4_std_dev'] = np.sqrt(results['Treco_param_sigma3_std_dev']**2 + np.sqrt(cov[1 + 3 + 2*param_offset , 1 + 3 + 2*param_offset])**2)
+    results['Treco_param_sigma5'] = results['Treco_param_sigma4'] + params[2 + 3 + 2*param_offset]
+    results['Treco_param_sigma5_std_dev'] = np.sqrt(results['Treco_param_sigma4_std_dev']**2 + np.sqrt(cov[2 + 3 + 2*param_offset, 2 + 3 + 2*param_offset])**2)
     
     # write heights
-    results['prefit_I5'] = params[2 + 6 + 3*param_offset]
-    results['prefit_I5_std_dev'] = np.sqrt(cov[2 + 6 + 3*param_offset, 2 + 6 + 3*param_offset])
-    results['prefit_I4'] = params[1 + 6 + 3*param_offset]
-    results['prefit_I4_std_dev'] = np.sqrt(cov[1 + 6 + 3*param_offset , 1 + 6 + 3*param_offset])
-    results['prefit_I3'] = params[6 + 3*param_offset]
-    results['prefit_I3_std_dev'] = np.sqrt(cov[6 + 3*param_offset, 6 + 3*param_offset])
+    results['Treco_param_I5'] = params[2 + 6 + 3*param_offset]
+    results['Treco_param_I5_std_dev'] = np.sqrt(cov[2 + 6 + 3*param_offset, 2 + 6 + 3*param_offset])
+    results['Treco_param_I4'] = params[1 + 6 + 3*param_offset]
+    results['Treco_param_I4_std_dev'] = np.sqrt(cov[1 + 6 + 3*param_offset , 1 + 6 + 3*param_offset])
+    results['Treco_param_I3'] = params[6 + 3*param_offset]
+    results['Treco_param_I3_std_dev'] = np.sqrt(cov[6 + 3*param_offset, 6 + 3*param_offset])
 
     # write background
-    results['prefit_bg'] = params[9 + 3*param_offset]
-    results['prefit_bg_std_dev'] = np.sqrt(cov[9 + 3*param_offset, 9 + 3*param_offset])
+    results['Treco_param_bg'] = params[9 + 3*param_offset]
+    results['Treco_param_bg_std_dev'] = np.sqrt(cov[9 + 3*param_offset, 9 + 3*param_offset])
 
     # additional entries for 4 peaks
     if len(peakIndices) > 3:
-        results['prefit_t2'] = results['prefit_t3'] - params[0]
-        results['prefit_t2_std_dev'] = np.sqrt(results['prefit_t3_std_dev']**2 + np.sqrt(cov[0, 0])**2)
+        results['Treco_param_t2'] = results['Treco_param_t3'] - params[0]
+        results['Treco_param_t2_std_dev'] = np.sqrt(results['Treco_param_t3_std_dev']**2 + np.sqrt(cov[0, 0])**2)
 
-        results['prefit_sigma2'] = params[4]
-        results['prefit_sigma2_std_dev'] = np.sqrt(cov[4, 4])
+        results['Treco_param_sigma2'] = params[4]
+        results['Treco_param_sigma2_std_dev'] = np.sqrt(cov[4, 4])
 
-        results['prefit_sigma3'] =  results['prefit_sigma3'] + params[4]
-        results['prefit_sigma3_std_dev'] = np.sqrt(results['prefit_sigma3_std_dev']**2 + np.sqrt(cov[4, 4])**2)
-        results['prefit_sigma4'] =  results['prefit_sigma4'] + params[4]
-        results['prefit_sigma4_std_dev'] = np.sqrt(results['prefit_sigma4_std_dev']**2 + np.sqrt(cov[4, 4])**2)
-        results['prefit_sigma5'] =  results['prefit_sigma5'] + params[4]
-        results['prefit_sigma5_std_dev'] = np.sqrt(results['prefit_sigma5_std_dev']**2 + np.sqrt(cov[4, 4])**2)
+        results['Treco_param_sigma3'] =  results['Treco_param_sigma3'] + params[4]
+        results['Treco_param_sigma3_std_dev'] = np.sqrt(results['Treco_param_sigma3_std_dev']**2 + np.sqrt(cov[4, 4])**2)
+        results['Treco_param_sigma4'] =  results['Treco_param_sigma4'] + params[4]
+        results['Treco_param_sigma4_std_dev'] = np.sqrt(results['Treco_param_sigma4_std_dev']**2 + np.sqrt(cov[4, 4])**2)
+        results['Treco_param_sigma5'] =  results['Treco_param_sigma5'] + params[4]
+        results['Treco_param_sigma5_std_dev'] = np.sqrt(results['Treco_param_sigma5_std_dev']**2 + np.sqrt(cov[4, 4])**2)
 
-        results['prefit_I2'] = params[8]
-        results['prefit_I2_std_dev'] = np.sqrt(cov[8,8])
+        results['Treco_param_I2'] = params[8]
+        results['Treco_param_I2_std_dev'] = np.sqrt(cov[8,8])
     
     
     # define known peak temperatures
     peakTemperatures = utils.peakTemps
-    peakTimes = np.array([results['prefit_t3'], results['prefit_t4'], results['prefit_t5']])
+    peakTimes = np.array([results['Treco_param_t3'], results['Treco_param_t4'], results['Treco_param_t5']])
     if len(peakIndices) <= 3:
         peakTemperatures = peakTemperatures[1:]
     else:
-        peakTimes = np.insert(peakTimes, 0, results['prefit_t2'])
+        peakTimes = np.insert(peakTimes, 0, results['Treco_param_t2'])
 
 
     # fit with given data'preheat_performed' in TrecoInfo.columns and results['preheat_performed'] == 1:
@@ -297,33 +297,18 @@ def calcTreco(x, y, peaks = 3):
         return results
 
     # write data to dataFrame
-    results['prefit_T0'] = TfitParams[0]
-    results['prefit_T0_std_dev'] = np.sqrt(TfitCov[0, 0])
-    results['prefit_alpha'] = TfitParams[1]
-    results['prefit_alpha_std_dev'] = np.sqrt(TfitCov[1, 1])
+    results['Treco_param_T0'] = TfitParams[0]
+    results['Treco_param_T0_std_dev'] = np.sqrt(TfitCov[0, 0])
+    results['Treco_param_alpha'] = TfitParams[1]
+    results['Treco_param_alpha_std_dev'] = np.sqrt(TfitCov[1, 1])
 
-    results["T_reco"] = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
+    results["Treco_T"] = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
 
     return results
 
 
 if __name__ == "__main__":
 
-    print("The execution of the module itself is designed to run the tests:")
+    print("A module for glow curve analysis.")
 
-    path2testData = './gcpy.test/test_data/test_nested_dir'
-    class GCDBTest(unittest.TestCase):
-
-        def test_updateRoIKeys(self):
-            print("Testing functionality of RoI detection")
-            data = {'x': np.linspace(-5,5), 'y': np.exp(-(np.linspace(-5,5))**2)}
-            calcRoI('x', 'y')(data)
-            self.assertTrue(all([key in data.keys() for key in ["RoI_low", "RoI_high"]]))
-
-            data = pd.DataFrame({'x': np.linspace(-5,5), 'y': np.exp(-(np.linspace(-5,5))**2)})
-            self.assertTrue(all([key in calcRoI('x', 'y')(data) for key in ["RoI_low", "RoI_high"]]))
-
-            self.assertTrue(all([key in calcRoI(data['x'], data['y']) for key in ["RoI_low", "RoI_high"]]))
-            print("--> OK")
-        
-    unittest.main()
+    

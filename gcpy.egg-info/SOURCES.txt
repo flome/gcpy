@@ -1,6 +1,8 @@
 setup.py
 gcpy/__init__.py
+gcpy/gcana.py
 gcpy/gcdb.py
+gcpy/utils.py
 gcpy.egg-info/PKG-INFO
 gcpy.egg-info/SOURCES.txt
 gcpy.egg-info/dependency_links.txt

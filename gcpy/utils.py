@@ -36,6 +36,7 @@ def gaussian(x, mu, sigma, I):
 	return y
 	
 # definition of a thee peak gaussian function with constant background
+@jit(nopython=True)
 def gaussianMultiPeak3(t, dx2, dx3, x4, sig2, dsig3, dsig4, I2, I3, I4, c):
 	x3 = x4-dx3
 	x2 = x3-dx2
@@ -49,6 +50,7 @@ def gaussianMultiPeak3(t, dx2, dx3, x4, sig2, dsig3, dsig4, I2, I3, I4, c):
 	return I
 
 # definition of a four peak gaussian function with constant background
+@jit(nopython=True)
 def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, I3, I4, c):
 	x3 = x4-dx3
 	x2 = x3-dx2
@@ -75,6 +77,7 @@ def calcRedChisq(yTrue, yFit, sigmaTrue, dof=1.):
 	return np.sum(np.power((np.array(yTrue)-np.array(yFit)),2)/np.power(sigmaTrue,2))/dof
 
 # define exponential heating function
+@jit(nopython=True)
 def exponentialHeating(t, T0, alpha, Tg = 573.15):
 	T = Tg-(Tg-T0)*np.exp(-alpha*t)
 	return T
@@ -86,6 +89,7 @@ def kitis1998(T, Tm, Im, E):
 	
 	return Im*np.exp(1.+arg-(T/Tm)**2*np.exp(arg)*(1.-2*k*T/E)-2*k*Tm/E)
 
+@jit(nopython=True)
 def ckitis2006(T, Tm, Im, E, Tg = 573.15):
 	global _cfunc
 
@@ -106,6 +110,7 @@ def ckitis2006(T, Tm, Im, E, Tg = 573.15):
 
 	return I
 
+@jit(nopython=True)
 def backgroundFunction(x, a, b, c, d):
         return a/(b-x)+c*np.exp((x-300)*d)
 

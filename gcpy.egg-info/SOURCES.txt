@@ -1,0 +1,8 @@
+setup.py
+gcpy/__init__.py
+gcpy/gcdb.py
+gcpy.egg-info/PKG-INFO
+gcpy.egg-info/SOURCES.txt
+gcpy.egg-info/dependency_links.txt
+gcpy.egg-info/requires.txt
+gcpy.egg-info/top_level.txt

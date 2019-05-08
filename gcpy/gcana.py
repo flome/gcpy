@@ -8,6 +8,8 @@
 # unit tests
 import unittest
 
+import time
+
 # json handling
 import json
 
@@ -22,9 +24,12 @@ from scipy import signal
 
 # numerical operations
 import numpy as np
+from numba import jit
 
 from . import utils
 from scipy.optimize import curve_fit
+import uncertainties as unc
+from uncertainties import unumpy as unp
 
 
 def calcRoI(x, y, iterations = 2):
@@ -146,7 +151,7 @@ def calcTreco(x, y, peaks = 3):
 
     if not peaks:
         try:
-            nSmoothing = int(81)
+            nSmoothing = int(105)
             if nSmoothing%2 == 0:
                 nSmoothing += 1
 
@@ -303,6 +308,178 @@ def calcTreco(x, y, peaks = 3):
     results['Treco_param_alpha_std_dev'] = np.sqrt(TfitCov[1, 1])
 
     results["Treco_T"] = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
+
+    return results
+
+@jit(nopython=False)
+def fitmethod_kitis98(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, C, D):
+        I = 0
+        I += utils.kitis1998(x, T1, I1, E1)
+        I += utils.kitis1998(x, T2, I2, E2)
+        I += utils.kitis1998(x, T3, I3, E3)
+        I += utils.kitis1998(x, T4, I4, E4)
+        bg = utils.backgroundFunction(x, A, B, C, D)
+        bg = np.where(bg<0,0,bg)
+        
+        return I+bg
+
+@jit(nopython=False)
+def fitmethod_kitis06(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, C, D):
+    I = 0
+    I += utils.ckitis2006(x, T1, I1, E1)
+    I += utils.ckitis2006(x, T2, I2, E2)
+    I += utils.ckitis2006(x, T3, I3, E3)
+    I += utils.ckitis2006(x, T4, I4, E4)
+    bg = utils.backgroundFunction(x, A, B, C, D)
+    bg = np.where(bg<0,0,bg)
+    
+    return I+bg
+
+
+## Glow curve fit
+def gcFit(x, y):
+    """
+    Perform the glow curve deconvolution for a given glow curve.
+
+    Parameters
+    ----------
+
+    x
+        array-like or string. If array-like, used as x-axis of analysis, should be temperature array from Treco. If string, the call will return a callable to be applied to a data set containing that x column
+    y
+        array-like or string. If array-like, used as y-axis of analysis, typically photon counts of measurement. If string, the call will return a callable to be applied to a data set containing that y column
+    
+    Returns
+    -------
+
+    GCio object containing the fitted data.
+    """
+
+    if isinstance(x, str):
+        return lambda data: calcTreco(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(gcFit(data[x], data[y]))
+
+    results = {}
+    T = np.array(x)
+    tPhotons = np.array(y)
+
+    ################################################################################################
+    errors_kitis1998 = 0
+    errors_kitis2006 = 0
+    errors_red_chi2_greater_10 = 0
+
+    binWidth = 2.5
+        
+    gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
+    gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)
+
+    upperTCut = 580
+    lowerTCut = 350
+
+    indices = np.where([gcTemp>lowerTCut, gcTemp<upperTCut])
+    indices = np.intersect1d(indices[1][np.where(indices[0] == 0)],indices[1][np.where(indices[0] == 1)])
+    gcTemp = gcTemp[indices]
+    gcPhotons = gcPhotons[indices]
+    # initialize start values
+    startT = utils.peakTemps
+    startE = np.array([1.25,1.55,1.46,2.4])
+    startI = np.array([100,gcPhotons.max()/3,gcPhotons.max()/2,0.9*gcPhotons.max()])
+    startBg = np.array([100,gcTemp.max()+1,1e-15,1e-2])
+    p0 = np.concatenate((startT, startI, startE, startBg))
+    
+    bounds = ([startT[0]-10,startT[1]-10,startT[2]-10,startT[3]-10,
+            0,0,0,0,0.5,1,1,1,0,gcTemp.max()+1,0,0.0], #minima
+            [startT[0]+10,startT[1]+10,startT[2]+10,startT[3]+10,
+            np.inf,np.inf,np.inf,np.inf,2.3,3.5,3.4,4.5,np.inf,580,10,.1] #maxima
+            )
+
+    # fit marker
+    error = False
+    prefitVals = None
+
+    # actual fit
+    t0 = time.time()
+    
+    try:
+        params, cov = curve_fit(fitmethod_kitis98, gcTemp, gcPhotons, p0 = p0, 
+                                bounds = bounds,
+                                )
+        prefitVals = params
+    except Exception as e:
+        results["gcfit_prefit_error"] = True
+
+        Warning('Fit error kitis 98')
+    
+    if isinstance(prefitVals, np.ndarray):
+        p0 = prefitVals
+
+    try:
+        params, cov = curve_fit(fitmethod_kitis06, gcTemp, gcPhotons, p0 = p0, 
+                                bounds = bounds,
+                                )
+    except Exception as e:
+        Warning('Fit error kitis 06')
+        results["gcfit_error"] = True
+        return results
+    
+    tcpu = round(1000*(time.time()-t0), 3)
+
+    fitValues = params
+    fitErrors = np.sqrt(np.diag(cov))
+
+    I_pred = fitmethod_kitis06(gcTemp, *params)
+    chiSquare = utils.calcRedChisq(gcPhotons,I_pred,np.sqrt(gcPhotons),len(gcPhotons)-len(params))
+
+    ####################### data extraction #################
+    #########################################################
+    results["gcfit_param_cpuTime"] = tcpu
+    results["gcfit_param_redChi2"] = chiSquare
+    Nsig =  0#unc.ufloat(0,0)
+    
+    for peak in range(4):
+        results["gcfit_param_Tm%s"%(peak+2)] = fitValues[peak]
+        results["gcfit_param_Tm%s_std_dev"%(peak+2)] = fitErrors[peak]
+
+        results["gcfit_param_Im%s"%(peak+2)] = fitValues[peak+4]
+        results["gcfit_param_Im%s_std_dev"%(peak+2)] = fitErrors[peak+4]
+
+        results["gcfit_param_E%s"%(peak+2)] = fitValues[peak+8]
+        results["gcfit_param_E%s_std_dev"%(peak+2)] = fitErrors[peak]+8
+        
+        peakI = utils.ckitis2006(gcTemp[1:], fitValues[peak], fitValues[peak+4], fitValues[peak+8])*np.diff(gcTemp)
+
+        results["gcfit_param_N%s"%(peak+2)] = np.sum(peakI)
+        Nsig += np.sum(peakI)
+        
+        results["gcfit_param_Nsig"] = Nsig
+
+        uA = unc.ufloat(fitValues[-4], fitErrors[-4])
+        uB = unc.ufloat(fitValues[-3], fitErrors[-3])
+        uC = unc.ufloat(fitValues[-2], fitErrors[-2])
+        uD = unc.ufloat(fitValues[-1], fitErrors[-1])
+        uNbg = (uA/(uB-gcTemp[1:])+uC * unp.exp((gcTemp[1:]-300)*uD))*np.diff(gcTemp)
+        uNbg = np.where(unp.nominal_values(uNbg) < 0,0,uNbg) 
+
+        results["gcfit_param_a"] = fitValues[-4]
+        results["gcfit_param_a_std_dev"] = fitErrors[-4]
+        results["gcfit_param_b"] = fitValues[-3]
+        results["gcfit_param_b_std_dev"] = fitErrors[-3]
+        results["gcfit_param_c"] = fitValues[-2]
+        results["gcfit_param_c_std_dev"] = fitErrors[-2]
+        results["gcfit_param_d"] = fitValues[-1]
+        results["gcfit_param_d_std_dev"] = fitErrors[-1]
+        
+        try:
+            results["gcfit_param_Nbg"] = np.sum(uNbg).nominal_value
+            results["gcfit_param_Nbg_std_dev"] = np.sum(uNbg).std_dev
+        
+            results["gcfit_param_Ntot"] = (Nsig+np.sum(uNbg)).nominal_value
+            results["gcfit_param_Ntot_std_dev"] = (Nsig+np.sum(uNbg)).std_dev
+
+        except AttributeError:
+            results["gcfit_param_Nbg"] = -1
+            results["gcfit_param_Nbg_std_dev"] = -1
+            results["gcfit_param_Ntot"] = -1
+            results["gcfit_param_Ntot_std_dev"] = -1
 
     return results
 

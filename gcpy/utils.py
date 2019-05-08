@@ -82,14 +82,12 @@ def exponentialHeating(t, T0, alpha, Tg = 573.15):
 	T = Tg-(Tg-T0)*np.exp(-alpha*t)
 	return T
 
-@jit(nopython=True)
 def kitis1998(T, Tm, Im, E):
 	k = 8.61733e-05 ; #Boltzmann constant k_B[eV/K]
 	arg = E*(T-Tm)/(k*T*Tm);		
 	
 	return Im*np.exp(1.+arg-(T/Tm)**2*np.exp(arg)*(1.-2*k*T/E)-2*k*Tm/E)
 
-@jit(nopython=True)
 def ckitis2006(T, Tm, Im, E, Tg = 573.15):
 	global _cfunc
 
@@ -110,7 +108,6 @@ def ckitis2006(T, Tm, Im, E, Tg = 573.15):
 
 	return I
 
-@jit(nopython=True)
 def backgroundFunction(x, a, b, c, d):
         return a/(b-x)+c*np.exp((x-300)*d)
 

@@ -1,4 +1,4 @@
 build
 gcpy.egg-info
-__pychache__
+*/__pycache__
 .eggs

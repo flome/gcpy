@@ -13,7 +13,8 @@ setup(
         "numpy", "scipy", "matplotlib", "pandas", # mostly preinstalled
         "tinydb >= 3.13.0",
         "numba >= 0.43",
-        "peakutils"
+        "peakutils",
+        "uncertainties"
     ], #external packages as dependencies
     test_suite='nose.collector',
     tests_require=['nose']  

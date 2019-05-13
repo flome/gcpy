@@ -31,6 +31,154 @@ from scipy.optimize import curve_fit
 import uncertainties as unc
 from uncertainties import unumpy as unp
 
+import multiprocessing
+
+import gc
+
+
+def worker(doc, func):
+    func(doc)
+    return doc
+
+def update(data, func, njobs=-1):
+    """
+    Use a function to update given data using one or more threads 
+    
+    Parameters
+    ---------
+    data
+        data to apply function to
+    
+    func
+        function to be applied
+
+    njobs
+        integer (default=-1). If -1, all available processors are used, otherwise the specified number of workers is launched
+    
+    Returns
+    ----------
+    The function updates the data and does not return data
+
+    """ 
+    pool = multiprocessing.Pool(processes=njobs if njobs != -1 else multiprocessing.cpu_count()-1)
+    docs = data.all()
+
+    results = [pool.apply_async(worker, args=(doc, func)) for doc in docs]
+    docs = None
+
+    data.write_back([result.get() for result in results])
+    return
+
+
+def getTable(db, asDataFrame=True):
+    """
+    Returns a table of data from the data base. 
+    
+    Parameters
+    ---------
+    db
+        data base or list of documents to get the parameters from
+    
+    Returns
+    ---------
+    
+    data
+        pandas DataFrame
+
+    """ 
+
+    if asDataFrame:
+        # if it is a list, some form of querying has happend, else get all documents
+        if not isinstance(db, list):
+            db = db.all()
+
+        results = pd.DataFrame(db)
+
+    else: 
+        results = db.storage.memory
+
+    return results
+
+
+def calcGCparams(x, y):
+    """
+    Compute standard parameters directly from the glow curve
+    
+    Parameters
+    ---------
+    x
+        string or list or array. x-axis for the data, generally the time axis for glow curve analysis. If a string is passed, a callable is returned
+
+    y
+        string or list or array. y-axis for the data, generally the photon counts for glow curve analysis. If a string is passed, a callable is returned
+
+    Returns
+    ---------
+    dict
+        dictionary containing the results
+
+    """
+
+    if isinstance(x, str):
+        return calcGCparamsWrapper(x, y)
+        #return lambda data: calcGCparams(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(calcGCparams(data[x], data[y]))
+
+    results = {}
+    x = np.array(x)
+    y = np.array(y)
+   
+    #### Curve data #####
+    nphotonMean = y.mean()
+    nphotonMax = y.max()
+    tMax = x[y == y.max()]
+    results['gc_Ntot'] = np.sum(y)
+    results['gc_Nmean'] = nphotonMean
+    results['gc_Nmax'] = nphotonMax
+    results['gc_tmax'] = tMax[0]
+
+    #### RoI #######
+    # calculate TU ROI
+    roi = calcRoI(x, y)
+    RoI_low_TU = x[roi['RoI_low']]
+    RoI_up_TU = x[roi['RoI_high']]
+    results['gc_timeRoI_low'] = RoI_low_TU
+    results['gc_timeRoI_high'] = RoI_up_TU
+    results['gc_timeRoI_length'] =RoI_up_TU-RoI_low_TU
+
+    #### calc sig and bg counts #####
+    results['gc_tBinSize'] = x[1] - x[0]
+    bgROI = np.sum(y[x > RoI_up_TU])
+    bgROI += np.sum(y[x < RoI_low_TU])
+    integral = np.sum(y[x < RoI_up_TU])
+    integral -= np.sum(y[x < RoI_low_TU])
+    results['gc_NtRoI'] = integral
+
+    # add results to data frame
+    results['gc_Nbg_m'] = (np.mean(y[x > RoI_up_TU])-np.mean(y[x < RoI_low_TU]))/(RoI_up_TU-RoI_low_TU)
+    results['gc_Nbg_b'] = np.mean(y[x < RoI_low_TU])-results['gc_Nbg_m']*RoI_low_TU
+    results['gc_Nbg'] = bgROI + (RoI_up_TU-RoI_low_TU)/results['gc_tBinSize']*(np.mean(y[x > RoI_up_TU])+0.5*np.mean(y[x < RoI_low_TU]))
+    results['gc_Nsig'] = results['gc_Ntot'] - results['gc_Nbg']
+
+    #### calculate cumulated sums ######
+    RoI_photons = y[x < RoI_up_TU]
+    tCumSum = x[x < RoI_up_TU]
+    RoI_photons = RoI_photons[tCumSum > RoI_low_TU]
+    tCumSum = x[x > RoI_low_TU]
+
+    photonCumSum = RoI_photons.cumsum()
+    results['gc_t_nphotonFirstQuarter'] = tCumSum[np.where(photonCumSum <= 0.25*photonCumSum[-1])[0].max()]
+    results['gc_t_nphotonSecondQuarter'] = tCumSum[np.where(photonCumSum <= 0.50*photonCumSum[-1])[0].max()]
+    results['gc_t_nphotonThirdQuarter'] = tCumSum[np.where(photonCumSum <= 0.75*photonCumSum[-1])[0].max()]
+
+    return results
+
+class calcGCparamsWrapper(object):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __call__(self, data):
+        return data.update(calcGCparams(data[self.x], data[self.y]))
+
 
 def calcRoI(x, y, iterations = 2):
     """
@@ -58,10 +206,8 @@ def calcRoI(x, y, iterations = 2):
     if isinstance(x, str):
         return lambda data: calcRoI(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(calcRoI(data[x], data[y]))
 
-    if not isinstance(x, np.ndarray):
-        x = np.array(x)
-    if not isinstance(y, np.ndarray):
-        y = np.array(y)
+    x = np.array(x)
+    y = np.array(y)
         
     # window size for the curve finder and correction for even numbers (can't be handled)
     window = int(len(x)/3)
@@ -103,6 +249,7 @@ def calcRoI(x, y, iterations = 2):
     return result
 
 
+
 def calcTreco(x, y, peaks = 3):
     """
     Perform the temperature reconstruction on an input data set either using a fixed or dynamic number of peaks.
@@ -124,7 +271,8 @@ def calcTreco(x, y, peaks = 3):
         dictionary containing the results of the Treco calculation
     """
     if isinstance(x, str):
-        return lambda data: calcTreco(data[x], data[y], peaks) if isinstance(data, pd.DataFrame)  else data.update(calcTreco(data[x], data[y], peaks))
+        return calcTrecoWrapper(x, y, peaks)
+        # return lambda data: calcTreco(data[x], data[y], peaks) if isinstance(data, pd.DataFrame)  else data.update(calcTreco(data[x], data[y], peaks))
 
     results = {}
     t = np.array(x)
@@ -223,93 +371,108 @@ def calcTreco(x, y, peaks = 3):
                 p0 = p0, bounds=[limitsLow, limitsHigh],
             )
         chi = utils.calcRedChisq(tPhotons, fitFunction(t,*params), np.sqrt(tPhotons), len(tPhotons)-len(params))
-        results["Treco"] = True
+        results["Treco_performed"] = True
     except Exception as e:
         Warning('Error in temperature reconstruction!')
         results["Treco_error"] = True
         return results
     
     # write the params and errors to the curve
-    results['Treco_param_redChi2'] = chi
+    results['Treco_redChi2'] = chi
     if len(peakIndices) > 3:
         param_offset = 1
     else:
         param_offset = 0
 
     # write peak positions
-    results['Treco_param_t5'] = params[2 + param_offset]
-    results['Treco_param_t5_std_dev'] = np.sqrt(cov[2 + param_offset, 2 + param_offset])
-    results['Treco_param_t4'] = results['Treco_param_t5']-params[1 + param_offset]
-    results['Treco_param_t4_std_dev'] = np.sqrt(results['Treco_param_t5_std_dev']**2 + np.sqrt(cov[1 + param_offset , 1 + param_offset])**2)
-    results['Treco_param_t3'] = results['Treco_param_t4']-params[param_offset]
-    results['Treco_param_t3_std_dev'] = np.sqrt(results['Treco_param_t4_std_dev']**2 + np.sqrt(cov[param_offset, param_offset])**2)
+    results['Treco_t5'] = params[2 + param_offset]
+    results['Treco_t5_std_dev'] = np.sqrt(cov[2 + param_offset, 2 + param_offset])
+    results['Treco_t4'] = results['Treco_t5']-params[1 + param_offset]
+    results['Treco_t4_std_dev'] = np.sqrt(results['Treco_t5_std_dev']**2 + np.sqrt(cov[1 + param_offset , 1 + param_offset])**2)
+    results['Treco_t3'] = results['Treco_t4']-params[param_offset]
+    results['Treco_t3_std_dev'] = np.sqrt(results['Treco_t4_std_dev']**2 + np.sqrt(cov[param_offset, param_offset])**2)
 
     # write sigmas
-    results['Treco_param_sigma3'] = params[3 + 2*param_offset]
+    results['Treco_sigma3'] = params[3 + 2*param_offset]
     
-    results['Treco_param_sigma3_std_dev'] = np.sqrt(cov[3 + 2*param_offset, 3 + 2*param_offset])
-    results['Treco_param_sigma4'] = results['Treco_param_sigma3'] + params[1 + 3 + 2*param_offset]
-    results['Treco_param_sigma4_std_dev'] = np.sqrt(results['Treco_param_sigma3_std_dev']**2 + np.sqrt(cov[1 + 3 + 2*param_offset , 1 + 3 + 2*param_offset])**2)
-    results['Treco_param_sigma5'] = results['Treco_param_sigma4'] + params[2 + 3 + 2*param_offset]
-    results['Treco_param_sigma5_std_dev'] = np.sqrt(results['Treco_param_sigma4_std_dev']**2 + np.sqrt(cov[2 + 3 + 2*param_offset, 2 + 3 + 2*param_offset])**2)
+    results['Treco_sigma3_std_dev'] = np.sqrt(cov[3 + 2*param_offset, 3 + 2*param_offset])
+    results['Treco_sigma4'] = results['Treco_sigma3'] + params[1 + 3 + 2*param_offset]
+    results['Treco_sigma4_std_dev'] = np.sqrt(results['Treco_sigma3_std_dev']**2 + np.sqrt(cov[1 + 3 + 2*param_offset , 1 + 3 + 2*param_offset])**2)
+    results['Treco_sigma5'] = results['Treco_sigma4'] + params[2 + 3 + 2*param_offset]
+    results['Treco_sigma5_std_dev'] = np.sqrt(results['Treco_sigma4_std_dev']**2 + np.sqrt(cov[2 + 3 + 2*param_offset, 2 + 3 + 2*param_offset])**2)
     
     # write heights
-    results['Treco_param_I5'] = params[2 + 6 + 3*param_offset]
-    results['Treco_param_I5_std_dev'] = np.sqrt(cov[2 + 6 + 3*param_offset, 2 + 6 + 3*param_offset])
-    results['Treco_param_I4'] = params[1 + 6 + 3*param_offset]
-    results['Treco_param_I4_std_dev'] = np.sqrt(cov[1 + 6 + 3*param_offset , 1 + 6 + 3*param_offset])
-    results['Treco_param_I3'] = params[6 + 3*param_offset]
-    results['Treco_param_I3_std_dev'] = np.sqrt(cov[6 + 3*param_offset, 6 + 3*param_offset])
+    results['Treco_I5'] = params[2 + 6 + 3*param_offset]
+    results['Treco_I5_std_dev'] = np.sqrt(cov[2 + 6 + 3*param_offset, 2 + 6 + 3*param_offset])
+    results['Treco_I4'] = params[1 + 6 + 3*param_offset]
+    results['Treco_I4_std_dev'] = np.sqrt(cov[1 + 6 + 3*param_offset , 1 + 6 + 3*param_offset])
+    results['Treco_I3'] = params[6 + 3*param_offset]
+    results['Treco_I3_std_dev'] = np.sqrt(cov[6 + 3*param_offset, 6 + 3*param_offset])
 
     # write background
-    results['Treco_param_bg'] = params[9 + 3*param_offset]
-    results['Treco_param_bg_std_dev'] = np.sqrt(cov[9 + 3*param_offset, 9 + 3*param_offset])
+    results['Treco_bg'] = params[9 + 3*param_offset]
+    results['Treco_bg_std_dev'] = np.sqrt(cov[9 + 3*param_offset, 9 + 3*param_offset])
 
     # additional entries for 4 peaks
     if len(peakIndices) > 3:
-        results['Treco_param_t2'] = results['Treco_param_t3'] - params[0]
-        results['Treco_param_t2_std_dev'] = np.sqrt(results['Treco_param_t3_std_dev']**2 + np.sqrt(cov[0, 0])**2)
+        results['Treco_t2'] = results['Treco_t3'] - params[0]
+        results['Treco_t2_std_dev'] = np.sqrt(results['Treco_t3_std_dev']**2 + np.sqrt(cov[0, 0])**2)
 
-        results['Treco_param_sigma2'] = params[4]
-        results['Treco_param_sigma2_std_dev'] = np.sqrt(cov[4, 4])
+        results['Treco_sigma2'] = params[4]
+        results['Treco_sigma2_std_dev'] = np.sqrt(cov[4, 4])
 
-        results['Treco_param_sigma3'] =  results['Treco_param_sigma3'] + params[4]
-        results['Treco_param_sigma3_std_dev'] = np.sqrt(results['Treco_param_sigma3_std_dev']**2 + np.sqrt(cov[4, 4])**2)
-        results['Treco_param_sigma4'] =  results['Treco_param_sigma4'] + params[4]
-        results['Treco_param_sigma4_std_dev'] = np.sqrt(results['Treco_param_sigma4_std_dev']**2 + np.sqrt(cov[4, 4])**2)
-        results['Treco_param_sigma5'] =  results['Treco_param_sigma5'] + params[4]
-        results['Treco_param_sigma5_std_dev'] = np.sqrt(results['Treco_param_sigma5_std_dev']**2 + np.sqrt(cov[4, 4])**2)
+        results['Treco_sigma3'] =  results['Treco_sigma3'] + params[4]
+        results['Treco_sigma3_std_dev'] = np.sqrt(results['Treco_sigma3_std_dev']**2 + np.sqrt(cov[4, 4])**2)
+        results['Treco_sigma4'] =  results['Treco_sigma4'] + params[4]
+        results['Treco_sigma4_std_dev'] = np.sqrt(results['Treco_sigma4_std_dev']**2 + np.sqrt(cov[4, 4])**2)
+        results['Treco_sigma5'] =  results['Treco_sigma5'] + params[4]
+        results['Treco_sigma5_std_dev'] = np.sqrt(results['Treco_sigma5_std_dev']**2 + np.sqrt(cov[4, 4])**2)
 
-        results['Treco_param_I2'] = params[8]
-        results['Treco_param_I2_std_dev'] = np.sqrt(cov[8,8])
+        results['Treco_I2'] = params[8]
+        results['Treco_I2_std_dev'] = np.sqrt(cov[8,8])
     
     
     # define known peak temperatures
     peakTemperatures = utils.peakTemps
-    peakTimes = np.array([results['Treco_param_t3'], results['Treco_param_t4'], results['Treco_param_t5']])
+    peakTimes = np.array([results['Treco_t3'], results['Treco_t4'], results['Treco_t5']])
     if len(peakIndices) <= 3:
         peakTemperatures = peakTemperatures[1:]
     else:
-        peakTimes = np.insert(peakTimes, 0, results['Treco_param_t2'])
+        peakTimes = np.insert(peakTimes, 0, results['Treco_t2'])
 
 
     # fit with given data'preheat_performed' in TrecoInfo.columns and results['preheat_performed'] == 1:
     try:
-        TfitParams, TfitCov = curve_fit(lambda x,y,z: utils.exponentialHeating(x,y,z), peakTimes, peakTemperatures)
+        TfitParams, TfitCov = curve_fit(exponentialHeatingWrapper(), peakTimes, peakTemperatures)
     except (ValueError, RuntimeError):
         Warning("Error during temperature reconstruction: temperature array creation")
         results["Treco_error"] = True
         return results
 
     # write data to dataFrame
-    results['Treco_param_T0'] = TfitParams[0]
-    results['Treco_param_T0_std_dev'] = np.sqrt(TfitCov[0, 0])
-    results['Treco_param_alpha'] = TfitParams[1]
-    results['Treco_param_alpha_std_dev'] = np.sqrt(TfitCov[1, 1])
+    results['Treco_T0'] = TfitParams[0]
+    results['Treco_T0_std_dev'] = np.sqrt(TfitCov[0, 0])
+    results['Treco_alpha'] = TfitParams[1]
+    results['Treco_alpha_std_dev'] = np.sqrt(TfitCov[1, 1])
 
     results["Treco_T"] = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
 
     return results
+
+class exponentialHeatingWrapper(object):
+    def __init__(self):
+        self.fitFunc = utils.exponentialHeating
+    def __call__(self, x, y, z):
+        return  self.fitFunc(x, y, z)
+
+
+class calcTrecoWrapper(object):
+    def __init__(self, x, y, peaks):
+        self.x = x
+        self.y = y
+        self.peaks = peaks
+    def __call__(self, data):
+        return data.update(calcTreco(data[self.x], data[self.y], self.peaks))
 
 @jit(nopython=False)
 def fitmethod_kitis98(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, C, D):
@@ -335,7 +498,6 @@ def fitmethod_kitis06(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, 
     
     return I+bg
 
-
 ## Glow curve fit
 def gcFit(x, y):
     """
@@ -356,7 +518,8 @@ def gcFit(x, y):
     """
 
     if isinstance(x, str):
-        return lambda data: calcTreco(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(gcFit(data[x], data[y]))
+        return gcFitWrapper(x, y) #if isinstance(data, pd.DataFrame)  else data.update(gcFitWrapper(data[x], data[y]))
+        # return lambda data: gcFit(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(gcFit(data[x], data[y]))
 
     results = {}
     T = np.array(x)
@@ -379,6 +542,10 @@ def gcFit(x, y):
     indices = np.intersect1d(indices[1][np.where(indices[0] == 0)],indices[1][np.where(indices[0] == 1)])
     gcTemp = gcTemp[indices]
     gcPhotons = gcPhotons[indices]
+
+    results["gcfit_T"] = gcTemp
+    results["gcfit_nPhotons"] = gcPhotons
+
     # initialize start values
     startT = utils.peakTemps
     startE = np.array([1.25,1.55,1.46,2.4])
@@ -427,61 +594,76 @@ def gcFit(x, y):
     fitErrors = np.sqrt(np.diag(cov))
 
     I_pred = fitmethod_kitis06(gcTemp, *params)
+    results["gcfit_gcd"] = I_pred
     chiSquare = utils.calcRedChisq(gcPhotons,I_pred,np.sqrt(gcPhotons),len(gcPhotons)-len(params))
 
     ####################### data extraction #################
     #########################################################
-    results["gcfit_param_cpuTime"] = tcpu
-    results["gcfit_param_redChi2"] = chiSquare
+    results["gcfit_cpuTime"] = tcpu
+    results["gcfit_redChi2"] = chiSquare
     Nsig =  0#unc.ufloat(0,0)
     
     for peak in range(4):
-        results["gcfit_param_Tm%s"%(peak+2)] = fitValues[peak]
-        results["gcfit_param_Tm%s_std_dev"%(peak+2)] = fitErrors[peak]
+        results["gcfit_Tm%s"%(peak+2)] = fitValues[peak]
+        results["gcfit_Tm%s_std_dev"%(peak+2)] = fitErrors[peak]
 
-        results["gcfit_param_Im%s"%(peak+2)] = fitValues[peak+4]
-        results["gcfit_param_Im%s_std_dev"%(peak+2)] = fitErrors[peak+4]
+        results["gcfit_Im%s"%(peak+2)] = fitValues[peak+4]
+        results["gcfit_Im%s_std_dev"%(peak+2)] = fitErrors[peak+4]
 
-        results["gcfit_param_E%s"%(peak+2)] = fitValues[peak+8]
-        results["gcfit_param_E%s_std_dev"%(peak+2)] = fitErrors[peak]+8
+        results["gcfit_E%s"%(peak+2)] = fitValues[peak+8]
+        results["gcfit_E%s_std_dev"%(peak+2)] = fitErrors[peak]+8
         
-        peakI = utils.ckitis2006(gcTemp[1:], fitValues[peak], fitValues[peak+4], fitValues[peak+8])*np.diff(gcTemp)
+        peakI = utils.ckitis2006(gcTemp, fitValues[peak], fitValues[peak+4], fitValues[peak+8])
+        results["gcfit_gcd_peak%s"%(peak+2)] = peakI
 
-        results["gcfit_param_N%s"%(peak+2)] = np.sum(peakI)
-        Nsig += np.sum(peakI)
+        N_peakI = peakI[1:]*np.diff(gcTemp)
+        results["gcfit_N%s"%(peak+2)] = np.sum(N_peakI)
+        Nsig += np.sum(N_peakI)
         
-        results["gcfit_param_Nsig"] = Nsig
+        results["gcfit_Nsig"] = Nsig
 
         uA = unc.ufloat(fitValues[-4], fitErrors[-4])
         uB = unc.ufloat(fitValues[-3], fitErrors[-3])
         uC = unc.ufloat(fitValues[-2], fitErrors[-2])
         uD = unc.ufloat(fitValues[-1], fitErrors[-1])
-        uNbg = (uA/(uB-gcTemp[1:])+uC * unp.exp((gcTemp[1:]-300)*uD))*np.diff(gcTemp)
-        uNbg = np.where(unp.nominal_values(uNbg) < 0,0,uNbg) 
+        uIbg = (uA/(uB-gcTemp)+uC * unp.exp((gcTemp-300)*uD))
+        uIbg = np.where(unp.nominal_values(uIbg) < 0,0,uIbg) 
 
-        results["gcfit_param_a"] = fitValues[-4]
-        results["gcfit_param_a_std_dev"] = fitErrors[-4]
-        results["gcfit_param_b"] = fitValues[-3]
-        results["gcfit_param_b_std_dev"] = fitErrors[-3]
-        results["gcfit_param_c"] = fitValues[-2]
-        results["gcfit_param_c_std_dev"] = fitErrors[-2]
-        results["gcfit_param_d"] = fitValues[-1]
-        results["gcfit_param_d_std_dev"] = fitErrors[-1]
+        # uNbg = (uA/(uB-gcTemp[1:])+uC * unp.exp((gcTemp[1:]-300)*uD))*np.diff(gcTemp)
+        # uNbg = np.where(unp.nominal_values(uNbg) < 0,0,uNbg) 
+        results["gcfit_gcd_bg"] = unp.nominal_values(uIbg)
+        uNbg = uIbg[1:]*np.diff(gcTemp)
+
+        results["gcfit_a"] = fitValues[-4]
+        results["gcfit_a_std_dev"] = fitErrors[-4]
+        results["gcfit_b"] = fitValues[-3]
+        results["gcfit_b_std_dev"] = fitErrors[-3]
+        results["gcfit_c"] = fitValues[-2]
+        results["gcfit_c_std_dev"] = fitErrors[-2]
+        results["gcfit_d"] = fitValues[-1]
+        results["gcfit_d_std_dev"] = fitErrors[-1]
         
         try:
-            results["gcfit_param_Nbg"] = np.sum(uNbg).nominal_value
-            results["gcfit_param_Nbg_std_dev"] = np.sum(uNbg).std_dev
+            results["gcfit_Nbg"] = np.sum(uNbg).nominal_value
+            results["gcfit_Nbg_std_dev"] = np.sum(uNbg).std_dev
         
-            results["gcfit_param_Ntot"] = (Nsig+np.sum(uNbg)).nominal_value
-            results["gcfit_param_Ntot_std_dev"] = (Nsig+np.sum(uNbg)).std_dev
+            results["gcfit_Ntot"] = (Nsig+np.sum(uNbg)).nominal_value
+            results["gcfit_Ntot_std_dev"] = (Nsig+np.sum(uNbg)).std_dev
 
         except AttributeError:
-            results["gcfit_param_Nbg"] = -1
-            results["gcfit_param_Nbg_std_dev"] = -1
-            results["gcfit_param_Ntot"] = -1
-            results["gcfit_param_Ntot_std_dev"] = -1
+            results["gcfit_Nbg"] = -1
+            results["gcfit_Nbg_std_dev"] = -1
+            results["gcfit_Ntot"] = -1
+            results["gcfit_Ntot_std_dev"] = -1
 
     return results
+
+class gcFitWrapper(object):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __call__(self, data):
+        return data.update(gcFit(data[self.x], data[self.y]))
 
 
 if __name__ == "__main__":

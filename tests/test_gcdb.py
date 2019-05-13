@@ -1,8 +1,8 @@
 import unittest, os, json
 from gcpy import gcdb
 
-singleFilePath_1 = os.path.join(os.path.dirname(__file__),'test_data/single_files/20190319_162420_7.json')
-singleFilePath_2 = os.path.join(os.path.dirname(__file__), 'test_data/single_files/20190319_162444_8.json')
+singleFilePath_1 = os.path.join(os.path.dirname(__file__),'test_data/single_files/20190430_145144_R19405.json')
+singleFilePath_2 = os.path.join(os.path.dirname(__file__), 'test_data/single_files/20190430_145114_R19425.json')
 testdirPath = os.path.join(os.path.dirname(__file__), 'test_data/test_nested_dir')
 testdbString = 'test_db.json'
 testStorageString = "test_storage"

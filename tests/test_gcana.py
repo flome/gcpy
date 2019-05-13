@@ -6,7 +6,9 @@ from gcpy import gcana, gcdb
 path2testData = os.path.join(os.path.dirname(__file__), 'test_data/single_files')
 RoI_keys = ['RoI_low', 'RoI_high']
 TReco_keys = ['Treco_T']
-gcFit_keys = ['gcfit_param_Ntot']
+gcFit_keys = ['gcfit_Ntot']
+GCparam_keys = ['gc_t_nphotonThirdQuarter']
+
 class GCanaTest(unittest.TestCase):
 
     def test_updateRoIKeys(self):
@@ -30,6 +32,24 @@ class GCanaTest(unittest.TestCase):
         self.assertTrue(all([key in db.get(doc_id=1).keys() for key in RoI_keys]))
         print("--> OK")
 
+    def test_calcGCparams(self):
+        print("Testing insertion of GC param keys to data base")
+        db = gcdb.readDir(path2testData)
+        db.update(gcana.calcGCparams('time_sec', 'PhCount'))
+        ref_doc = db.get(doc_id=1)
+        self.assertTrue(all([(key in db.get(doc_id=1).keys()) and (db.get(doc_id=1)[key] is not None) for key in GCparam_keys]))
+        self.assertTrue(
+            all(
+                [
+                    ref_doc['gc_Nsig'] < ref_doc['gc_Ntot'],
+                    ref_doc['gc_timeRoI_low'] < ref_doc['gc_t_nphotonFirstQuarter'],
+                    ref_doc['gc_t_nphotonFirstQuarter'] < ref_doc['gc_t_nphotonThirdQuarter'],
+                    ref_doc['gc_t_nphotonThirdQuarter'] < ref_doc['gc_timeRoI_high']
+                ]
+            )
+        )
+        print('--> OK')
+
     def test_Treco(self):
         print("Testing insertion of Treco keys to data base")
         db = gcdb.readDir(path2testData)
@@ -44,6 +64,13 @@ class GCanaTest(unittest.TestCase):
         db.update(gcana.gcFit('Treco_T', 'PhCount'))
         self.assertTrue(all([(key in db.get(doc_id=1).keys()) and (db.get(doc_id=1)[key] is not None) for key in gcFit_keys]))
         print("--> OK")
+
+    def test_getTable(self):
+        print("Test flattening to DataFrame")
+        db = gcdb.readDir(path2testData)
+        db.update(gcana.calcGCparams('time_sec', 'PhCount'))
+        results = gcana.getTable(db)
+        self.assertTrue(all([key in results.columns for key in GCparam_keys]))
 
 if __name__ == '__main__':
     unittest.main()

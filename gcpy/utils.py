@@ -30,7 +30,39 @@ else:
 	_cfunc = None
 	print("Some features like C boosted functions are only available on Linux and Mac OS systems.")
 
+def linear(x, m, b):
+    return m*x+b
+def quad(x, a, b, c):
+    return a*x*x+b*x+c
+def exponential(x, a, b, c):
+    return a-(a-b)*np.exp(-c*x)
+def exponential_peak_2(x, a, c, d):
+    return (a*np.exp(-c*x))+(1-a)+d*x
+def exponential_2sum(x, a, b, c, d):
+    return a*np.exp(-b*x)+c*np.exp(-d*x)
+def exponential_peak_3(x, a, b, c, d):
+    return (a-(a-b)*np.exp(-c*x))*np.exp(-d*x)+(1-b)
+def unp_exponential(x, a, b, c):
+    return a-(a-b)*np.exp(-c*x)
+def unp_exponential_peak_2(x, a, c, d):
+    return (a*np.exp(-c*x))+(1-a)+d*x
+def unp_exponential_peak_3(x, a, b, c, d):
+    return (a-(a-b)*np.exp(-c*x))*np.exp(-d*x)+(1-b)
 
+def exponentialE2(x, a, b, c, d, e):
+    return (a-(a-b)*np.exp(-c*x))*np.exp(-d*x)+e*x+(1-b)
+def unp_exponentialE2(x, a, b, c, d, e):
+    return (a-(a-b)*np.exp(-c*x))*np.exp(-d*x)+e*x+(1-b)
+
+def exponentialIm2(x, a, b, c, d):
+    return a*np.exp(-b*x)+c*np.exp(-d*x)
+def unp_exponentialIm2(x, a, b, c, d):
+    return a*np.exp(-b*x)+c*np.exp(-d*x)
+
+def exponential_tpre_peak2(x, a, b, c, d):
+	return a*np.exp(b*x)+c*np.exp(d*x)
+  
+  
 def gaussian(x, mu, sigma, I):
 	y = I*np.exp(-(x-mu)**2/2/sigma**2)
 	return y

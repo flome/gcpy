@@ -8,6 +8,7 @@ from . import utils
 import pandas as pd
 import numpy as np
 import os, json
+from itertools import compress
 
 functions_D = {
     'Tm2': utils.linear,
@@ -180,7 +181,38 @@ def genCurve(kinetic_parameters, time_col, photon_col):
 
 
 def generate(sim_params=None, kinetic_params=None, time_col='time_sec', photon_col='PhCount'):
-       
+        presets = {
+            'dose': {
+                'muSv': 1e-3,
+                'mSv': 1,
+                'Sv': 1e3
+            },
+            'dt_pre': {
+                's': 1/60/60/24,
+                'min': 1/60/24,
+                'h': 1/24,
+                'd': 1
+            },
+            'dt_post': {
+                's': 1/60/60,
+                'min': 1/60,
+                'h': 1,
+                'd': 24
+            }
+
+        }
+        for key in ['dose', 'dt_pre', 'dt_post']:
+            if not isinstance(sim_params[key], str):
+                raise AttributeError("Provide a value with a unit in form of a string please.")
+            else:
+                units = [ unit in sim_params[key] for unit in presets[key].keys() ]
+                if not any(units):
+                    raise AttributeError("Invalid unit passed: valid are: "+str(presets[key].keys()))
+                else:
+                    unit = list(compress(presets[key].keys(), units))[0]
+                    value = float(sim_params[key].replace(unit, ''))*presets[key][unit]
+                    sim_params[key] = value
+
         if sim_params:
             sim_parameters.update(sim_params)
 

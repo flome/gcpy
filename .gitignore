@@ -2,3 +2,4 @@ build
 gcpy.egg-info
 */__pycache__
 .eggs
+*/.ipynb_checkpoints

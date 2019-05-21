@@ -48,7 +48,7 @@ db.update(calcGCparams('time_sec', 'PhCount'))
 Temperature reconstruction
 
 ```
-db.update(Treco('time_sec', 'PhCount', peaks=3))
+db.update(calcTreco('time_sec', 'PhCount', peaks=3))
 ```
 
 Glow curve deconvolution

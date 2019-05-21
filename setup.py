@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+import os 
 
 setup(
     name='gcpy',
@@ -8,6 +9,7 @@ setup(
     author_email='florian.mentzel@tu-dortmund.com',
     license='LICENSE.txt',
     packages=['gcpy'],  #same as name
+    package_data = {'gcpy': ['lib/*']},
     install_requires=[
         "resource", # should be preinstalled
         "numpy", "scipy", "matplotlib", "pandas", # mostly preinstalled

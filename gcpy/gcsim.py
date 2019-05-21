@@ -103,7 +103,6 @@ def computeKinetics(sim_settings=sim_parameters, sim_parameters=empirical_parame
     
     if sim_settings['dt_post'] == 0:
         sim_settings['dt_post'] = 1/60
-        print('WARNING: fading time must be greater zero, set to 1 second')
 
     kinetic_parameters = {}
     for key in functions_D.keys():
@@ -154,8 +153,8 @@ def genCurve(kinetic_parameters, time_col, photon_col):
         I = np.zeros((4,len(t)))
         function = utils.ckitis2006
         
-        for peak in [0,1,2,3]:          
-            peak_I = function(np.append((upper+lower)/2, upper[-1]), kinetic_parameters['Tm%s'%(peak+2)], kinetic_parameters['Im%s'%(peak+2)], kinetic_parameters['E%s'%(peak+2)])*np.append((upper-lower), 0)
+        for peak in [0,1,2,3]:
+            peak_I = function(np.append((upper+lower)/2, upper[-1])-2.5, kinetic_parameters['Tm%s'%(peak+2)], kinetic_parameters['Im%s'%(peak+2)], kinetic_parameters['E%s'%(peak+2)])*np.append((upper-lower), 0)
             I[peak] = np.where(peak_I<0, 0, peak_I)
             
         # bg = utils.backgroundFunction(np.append((upper+lower)/2, upper[-1]), kinetic_parameters['a'],  kinetic_parameters['b'],  kinetic_parameters['c'],  kinetic_parameters['c'])*np.append((upper-lower), 0)
@@ -202,6 +201,8 @@ def generate(sim_params=None, kinetic_params=None, time_col='time_sec', photon_c
 
         }
         for key in ['dose', 'dt_pre', 'dt_post']:
+            if key not in sim_params.keys():
+                continue
             if not isinstance(sim_params[key], str):
                 raise AttributeError("Provide a value with a unit in form of a string please.")
             else:
@@ -219,6 +220,11 @@ def generate(sim_params=None, kinetic_params=None, time_col='time_sec', photon_c
         kinetic_parameters = computeKinetics()   
         if kinetic_params:
             kinetic_parameters.update(kinetic_params)    
-
+            
         curve = genCurve(kinetic_parameters, time_col, photon_col)
+        for key in sim_parameters:
+            curve["sim_"+key] = sim_parameters[key]
+        for key in kinetic_parameters:
+            curve["sim_"+key] = kinetic_parameters[key]
+
         return curve

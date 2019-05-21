@@ -109,10 +109,59 @@ def calcRedChisq(yTrue, yFit, sigmaTrue, dof=1.):
 	return np.sum(np.power((np.array(yTrue)-np.array(yFit)),2)/np.power(sigmaTrue,2))/dof
 
 # define exponential heating function
-@jit(nopython=True)
+# @jit(nopython=True)
 def exponentialHeating(t, T0, alpha, Tg = 573.15):
+	"""
+	Describes the heat transition by contact to a hot plate. 
+
+	Parameters
+	---------
+	
+	t	
+		time point, may be an array
+	T0	
+		detector temperatur in K before heating starts
+	alpha	
+		heating coefficient
+	Tg	
+		Heater plate temperature in K (default: K = 573.15K)
+
+	Returns
+	---------
+
+	T
+		Temperature corresponding to the input time point(s)
+	"""
+
 	T = Tg-(Tg-T0)*np.exp(-alpha*t)
 	return T
+
+# @jit(nopython=True)
+def invertExponentialHeating(T, T0, alpha, Tg = 573.15):
+	""""
+	Invertion of exponential heating
+
+	Parameters
+	---------
+	
+	T	
+		Temperature, may be an array
+	T0	
+		detector temperatur in K before heating starts
+	alpha	
+		heating coefficient
+	Tg	
+		Heater plate temperature in K (default: K = 573.15K)
+
+	Returns
+	---------
+
+	t
+		time point corresponding to the input time point(s)
+	"""
+
+	t = np.log((Tg-T0)/(Tg-T))/alpha 
+	return t
 
 def kitis1998(T, Tm, Im, E):
 	k = 8.61733e-05 ; #Boltzmann constant k_B[eV/K]

@@ -61,13 +61,65 @@ def update(data, func, njobs=-1):
 
     """ 
     pool = multiprocessing.Pool(processes=njobs if njobs != -1 else multiprocessing.cpu_count()-1)
-    docs = data.all()
+
+    if isinstance(data, dict):
+        docs = [data]
+    elif isinstance(data, list):
+        docs = data
+    else:
+        docs = data.all()
 
     results = [pool.apply_async(worker, args=(doc, func)) for doc in docs]
     docs = None
 
-    data.write_back([result.get() for result in results])
-    return
+    results = [result.get() for result in results]
+    if isinstance(data, dict):
+        return results[0]
+    elif isinstance(data, list):
+        return results
+    else:
+        data.write_back(results)
+        return
+
+def stripArrays(data, exclude=None):
+    """
+    Deletes array entries except excluded ones to save memory
+    
+    Parameters
+    ---------
+    data
+        data base or list of documents
+    exclude
+        list of array names to keep
+    
+    Returns
+    ---------
+    
+    data
+        input data minus entries which had arrays
+
+    """ 
+
+    if isinstance(data, dict):
+        docs = [data]
+    elif isinstance(data, list):
+        docs = data
+    else:
+        raise AttributeError("Invalid input type: ", data.dtype)
+
+    for doc in docs:
+        keys2del = []
+        for key in doc:
+            if isinstance(doc[key], (np.ndarray, list)):
+                keys2del.append(key)
+
+        for key in keys2del:
+            del doc[key]
+    
+    if isinstance(data, dict):
+        return docs[0]
+    elif isinstance(data, list):
+        return docs
 
 
 def getTable(db, asDataFrame=True):
@@ -334,7 +386,7 @@ def calcTreco(x, y, peaks = 3):
                             ])
         limitsLow=np.array([(RoI_high-RoI_low)/8,(RoI_high-RoI_low)/8,RoI_high-(RoI_high-RoI_low)/3,
                             0.1, 0, 0,
-                            tPhotons.max()/3, tPhotons.max()/2, tPhotons.max()/3,
+                            0, tPhotons.max()/2, tPhotons.max()/3,
                             0
                             ])
         limitsHigh=np.array([(RoI_high-RoI_low)/2,(RoI_high-RoI_low)/3,RoI_high,

@@ -9,6 +9,15 @@ git clone https://github.com/flome/gcpy
 cd gcpy
 pip install .
 ```
+You can use gcpy in your project by importing it with
+```
+import gcpy
+```
+The readme overview can be displayed using
+```
+gcpy.help()
+```
+
 
 ## Load data
 

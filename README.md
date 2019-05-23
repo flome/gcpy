@@ -1,6 +1,10 @@
+
 # gcpy
 University project: glow curve analysis software for exponential heating.
 For questions and support please contact the maintainer Florian Mentzel (florian.mentzel@tu-dortmund.de).
+
+## Compatibility
+Attention: Tested with Ubuntu 16.04 and CentOS7, might fail on other platforms, especially fails probably with Windows.
 
 ## Install
 

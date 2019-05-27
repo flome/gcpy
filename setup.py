@@ -13,6 +13,7 @@ setup(
     install_requires=[
         "resource", # should be preinstalled
         "numpy", "scipy", "matplotlib", "pandas", # mostly preinstalled
+        "ujson",
         "tinydb >= 3.13.0",
         "numba >= 0.43",
         "peakutils",

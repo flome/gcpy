@@ -9,7 +9,7 @@
 import unittest
 
 # json handling
-import json
+import ujson as json
 
 # os operations like file lists
 import os
@@ -20,6 +20,10 @@ from tinydb.storages import MemoryStorage
 
 # compression tools for saving disk space
 import pickle, gzip, bz2, sys, resource
+
+# import for prototypeII support
+import pandas as pd
+import io
 
 def newDB(store = None, mode="overwrite"):
     """
@@ -82,12 +86,12 @@ def prototypeIItoJson(files2import):
     if isinstance(files2import, list):
         for file in files2import:
             if file.endswith(".TXT") or file.endswith(".txt"):
-                docs.append(txt2json(open(file, encoding='iso-8859-1')))
+                docs.append(_prototypeIItoJson(open(file, encoding='iso-8859-1')))
     elif os.path.isdir(files2import):
         for dirs, subdirs, files in os.walk(files2import):
             for file in files:
                 if file.endswith(".TXT") or file.endswith(".txt"):
-                    docs.append(txt2json(open(os.path.join(dirs, file), encoding='iso-8859-1')))
+                    docs.append(_prototypeIItoJson(open(os.path.join(dirs, file), encoding='iso-8859-1')))
     elif os.path.isfile(files2import):
         docs.append(_prototypeIItoJson(open(files2import, encoding='iso-8859-1')))
     return docs

@@ -86,50 +86,53 @@ def prototypeIItoJson(files2import):
     if isinstance(files2import, list):
         for file in files2import:
             if file.endswith(".TXT") or file.endswith(".txt"):
-                docs.append(_prototypeIItoJson(open(file, encoding='iso-8859-1')))
+                docs.append(_prototypeIItoJson(file))
     elif os.path.isdir(files2import):
         for dirs, subdirs, files in os.walk(files2import):
             for file in files:
                 if file.endswith(".TXT") or file.endswith(".txt"):
-                    docs.append(_prototypeIItoJson(open(os.path.join(dirs, file), encoding='iso-8859-1')))
+                    docs.append(_prototypeIItoJson(os.path.join(dirs, file)))
     elif os.path.isfile(files2import):
-        docs.append(_prototypeIItoJson(open(files2import, encoding='iso-8859-1')))
+        docs.append(_prototypeIItoJson(files2import))
     return docs
 
-def _prototypeIItoJson(fileStream):
+def _prototypeIItoJson(file):
     """
     Internal helper function for prototypeIItoJson
     """
-    doc = {}
+    doc = {'filename': os.path.basename(file), 'filedir': os.path.dirname(file)}
     unknown = 0
-    while(True):
-        line = fileStream.readline()
-        if line == "":
-            break 
 
-        if "[" in line and "]" in line and "BEGIN" in line:
-            tableTitle = line[line.find('BEGIN')+len("BEGIN"):line.rfind(']')].strip()
+    with open(file, encoding='iso-8859-1') as fileStream:
+        while(True):
+            line = fileStream.readline()
+            if line == "":
+                break 
 
-            tableContent = ""
-            while(True):
-                line = fileStream.readline()
-                if "[" in line and "]" in line and "END "+tableTitle in line:
-                    break
+            if "[" in line and "]" in line and "BEGIN" in line:
+                tableTitle = line[line.find('BEGIN')+len("BEGIN"):line.rfind(']')].strip()
+
+                tableContent = ""
+                while(True):
+                    line = fileStream.readline()
+                    if "[" in line and "]" in line and "END "+tableTitle in line:
+                        break
+                    
+                    tableContent += line.replace(',', '.')
                 
-                tableContent += line.replace(',', '.')
-            
-            tableContent = pd.read_csv(io.StringIO(tableContent), delimiter="\t")
-            for key in tableContent:
-                doc[key] = [x.item() for x in tableContent[key].values]
-                
-        elif " " in line:
-            itemTitle = line[0:line.find(" ")+1].strip()
-            itemContent = line[line.find(" ")+1:].strip()
-            doc[itemTitle] = itemContent
+                tableContent = pd.read_csv(io.StringIO(tableContent), delimiter="\t")
+                for key in tableContent:
+                    doc[key] = [x.item() for x in tableContent[key].values]
+                    
+            elif " " in line:
+                itemTitle = line[0:line.find(" ")+1].strip()
+                itemContent = line[line.find(" ")+1:].strip()
+                doc[itemTitle] = itemContent
 
-        else:
-            doc["UNKNOWN_%s"%unknown] = line.strip()
-            unknown += 1
+            else:
+                doc["UNKNOWN_%s"%unknown] = line.strip()
+                unknown += 1
+
     return doc
 
 

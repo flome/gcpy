@@ -47,6 +47,29 @@ To append new data to an existing data base, you can pass the object in the form
 ```
 data = gcpy.gcdb.readDir('second_dir', db = data)
 ```
+### Legacy support
+
+In version 0.1.1, TXT files from the Prototype II can be converted to json. The Prototype II is data in the format
+```
+KEY VALUE
+KEY VALUE
+[BEGIN TABLENAME]
+table content
+[END TABLENAME]
+```
+If a line does not contain a key-value pair but only one value, it will be named ```UNKNOWN_i``` where ```i``` is a increasing index for values without label. You may replace them later on in your analysis.
+To import a folder containing measurements in legacy format, you can call 
+```
+data = gcdb.prototypeIItoJson(dirPath)
+```
+which returns a list of dictionaries containing the data. You can either merge this data into an existing database 
+```
+db.insert_multiple(data)
+```
+or create a pandas DataFrame from it using
+```
+df = pd.DataFrame(data)
+```
 
 ## Glow curve analysis
 

@@ -62,6 +62,73 @@ def newDB(store = None, mode="overwrite"):
         # if no store is passed, use the in-memory version
         return TinyDB(storage=MemoryStorage)
 
+def prototypeIItoJson(files2import):
+    """
+    Convenience function to convert data from old Prototype II TXT format to json.
+    
+    Parameters
+    ---------
+    files2import
+        Directory, filename or list of files to import. Must end on 'TXT' or 'txt' to be imported
+
+    Returns
+    ---------
+    docs
+        list of json documents (python dictionaries) derived from the imported file(s)
+
+    """
+
+    docs = []
+    if isinstance(files2import, list):
+        for file in files2import:
+            if file.endswith(".TXT") or file.endswith(".txt"):
+                docs.append(txt2json(open(file, encoding='iso-8859-1')))
+    elif os.path.isdir(files2import):
+        for dirs, subdirs, files in os.walk(files2import):
+            for file in files:
+                if file.endswith(".TXT") or file.endswith(".txt"):
+                    docs.append(txt2json(open(os.path.join(dirs, file), encoding='iso-8859-1')))
+    elif os.path.isfile(files2import):
+        docs.append(_prototypeIItoJson(open(files2import, encoding='iso-8859-1')))
+    return docs
+
+def _prototypeIItoJson(fileStream):
+    """
+    Internal helper function for prototypeIItoJson
+    """
+    doc = {}
+    unknown = 0
+    while(True):
+        line = fileStream.readline()
+        if line == "":
+            break 
+
+        if "[" in line and "]" in line and "BEGIN" in line:
+            tableTitle = line[line.find('BEGIN')+len("BEGIN"):line.rfind(']')].strip()
+
+            tableContent = ""
+            while(True):
+                line = fileStream.readline()
+                if "[" in line and "]" in line and "END "+tableTitle in line:
+                    break
+                
+                tableContent += line.replace(',', '.')
+            
+            tableContent = pd.read_csv(io.StringIO(tableContent), delimiter="\t")
+            for key in tableContent:
+                doc[key] = [x.item() for x in tableContent[key].values]
+                
+        elif " " in line:
+            itemTitle = line[0:line.find(" ")+1].strip()
+            itemContent = line[line.find(" ")+1:].strip()
+            doc[itemTitle] = itemContent
+
+        else:
+            doc["UNKNOWN_%s"%unknown] = line.strip()
+            unknown += 1
+    return doc
+
+
 def readFiles(files2load, db = None, store = None, mode="overwrite"):
     """
     Function to import single measurement files or a list of measurements.

@@ -3,12 +3,12 @@ import os
 
 setup(
     name='gcpy',
-    version='0.1.0',
+    version='0.1.1',
     description='A python package for glow curve analysis',
     author='Florian Mentzel',
     author_email='florian.mentzel@tu-dortmund.com',
     license='LICENSE.txt',
-    packages=['gcpy'],  #same as name
+    packages=['gcpy'],  
     package_data = {'gcpy': ['lib/*']},
     install_requires=[
         "resource", # should be preinstalled

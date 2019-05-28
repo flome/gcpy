@@ -50,7 +50,7 @@ measurement_db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
 They update the documents within the database automatically.
 
 
-### Analysis in pandas
+### Glow curve plots and data analysis (e.g. in pandas)
 
 You can access a list of all documents (measurements) with
 ```

@@ -16,8 +16,7 @@ measurement_db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
 
 # plot all curves and save them
 import matplotlib.pyplot as plt
-list_of_measurements = db.all()
-for measurement in list_of_measurements:
+for measurement in measurement_db:
   plt.plot(measurement['time_sec'], measurement['PhCount'], label='Measurement')
   plt.xlabel('$t$ in s')
   plt.ylabel('$N$ in $\\mathrm{\\frac{1}{5\\,ms}}$')
@@ -29,5 +28,5 @@ for measurement in list_of_measurements:
 # delete arrays from data base and save as table
 measurement_db.update(gcana.strip_arrays)
 import pandas as pd
-measurements_dataframe = pd.DataFrame(list_of_all_meas)
+measurements_dataframe = pd.DataFrame(measurement_db.all())
 measurements_dataframe.to_excel('Results.xls')

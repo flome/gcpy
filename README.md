@@ -49,17 +49,12 @@ measurement_db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
 ```
 They update the documents within the database automatically.
 
-
 ### Glow curve plots and data analysis (e.g. in pandas)
 
-You can access a list of all documents (measurements) with
-```
-list_of_measurements = db.all()
-```
-You can use this list e.g. to create and save glow curve plots:
+You can create and save glow curve plots:
 ```
 import matplotlib.pyplot as plt
-for measurement in list_of_measurements:
+for measurement in measurement_db:
   plt.plot(measurement['time_sec'], measurement['PhCount'], label='Measurement')
   plt.xlabel('$t$ in s')
   plt.ylabel('$N$ in $\\mathrm{\\frac{1}{5\\,ms}}$)
@@ -69,7 +64,11 @@ for measurement in list_of_measurements:
   plt.clf()
 ```
 
-You can use this to create e.g. a pandas DataFrame
+You can access a list of all documents (measurements) with
+```
+list_of_measurements = measurement_db.all()
+```
+which you can use to create e.g. a pandas DataFrame
 ```
 import pandas as pd
 measurements_dataframe = pd.DataFrame(list_of_all_meas)

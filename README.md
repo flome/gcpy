@@ -19,35 +19,52 @@ You can use gcpy in your project by importing it with
 import gcpy
 ```
 
-## Load data
+## Usage
 
-To load data, you can call either
-```
-data = gcpy.gcdb.readFiles([list_of_files])
-```
-
-or
+### Load data
+To load data from a directory, you can call 
 
 ```
-data = gcpy.gcdb.readDir('path_to_dir')
+path2data = PUT_YOUR_DIRECTORY_PATH_HERE
+measurement_db = gcpy.gcdb.readDir(path2data)
 ```
-This returns a [TinyDB](https://tinydb.readthedocs.io/en/latest/) database instance. Refer to their documentation for information about the usage.
-To access the list of entries, simply call
-
-```
-list_of_docs = data.all()
-```
-which returns a list containing the data points in the form of python dictionaries. For analysis, you can either use those or transform it to a [pandas DataFrame](https://pandas.pydata.org/) by calling
-```
-import pandas as pd
-df = pd.DataFrame(list_of_docs)
-```
-
 To append new data to an existing data base, you can pass the object in the form
 ```
-data = gcpy.gcdb.readDir('second_dir', db = data)
+measurement_db = gcpy.gcdb.readDir('ANOTHER_DIRECTORY_YOU_WANT_TO_IMPORT', db = measurement_db)
 ```
-### Legacy support
+
+### Glow curve analysis
+
+There are predefined functions to compute glow curve parameters like the netto photon counts
+```
+db.update(gcpy.gcana.calcGCparams('time_sec', 'PhCount'))
+```
+to perform the temperature reconstruction (please note that you need to specify the number of peaks here!)
+```
+db.update(gcpy.gcana.calcTreco('time_sec', 'PhCount', peaks=3))
+```
+and the glow curve deconvolution
+```
+db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
+```
+They update the documents within the database automatically.
+
+
+### Analysis in pandas
+
+You can access a list of all documents (measurements) with
+```
+list_of_all_meas = db.all()
+```
+You can use this to create e.g. a pandas DataFrame
+```
+import pandas as pd
+df = pd.DataFrame(list_of_all_meas)
+```
+to perform further analysis tasks.
+
+
+## Legacy support
 
 In version 0.1.1, TXT files from the Prototype II can be converted to json. The Prototype II is data in the format
 ```
@@ -57,54 +74,19 @@ KEY VALUE
 table content
 [END TABLENAME]
 ```
+or
+```
+KEY=VALUE
+KEY=VALUE
+[BEGIN TABLENAME]
+table content
+[END TABLENAME]
+```
 If a line does not contain a key-value pair but only one value, it will be named ```UNKNOWN_i``` where ```i``` is a increasing index for values without label. You may replace them later on in your analysis.
 To import a folder containing measurements in legacy format, you can call 
 ```
-data = gcdb.prototypeIItoJson(dirPath)
+db = gcpy.gcdb.newDB()
+db.insert_multiple(gcdb.prototypeIItoJson(dirPath))
 ```
-which returns a list of dictionaries containing the data. You can either merge this data into an existing database 
-```
-db.insert_multiple(data)
-```
-or create a pandas DataFrame from it using
-```
-df = pd.DataFrame(data)
-```
+From here you can continue as described above.
 
-## Glow curve analysis
-
-Functions and operations can be applied to the data base using either
-```
-data.update(callable)
-```
-or
-```
-gcpy.gcana.update(database, callable, njobs)
-```
-for parallel processing.
-
-Predefined functions can be called with the string names of the x- and y- axis for the analysis
-Some may require additional parameters like the number of peaks.
-Computation of basic GC parameters: 
-
-```
-db.update(calcGCparams('time_sec', 'PhCount'))
-```
-
-Temperature reconstruction
-
-```
-db.update(calcTreco('time_sec', 'PhCount', peaks=3))
-```
-
-Glow curve deconvolution
-
-```
-db.update(gcFit('time_sec', 'PhCount'))
-```
-
-You can also directly use the analysis functions on a document in the form of a dictionary using
-```
-doc_new_entries = calcGCparams(doc['X_axis'], doc['Y_axis'])
-doc.update(doc_new_entries)
-```

@@ -37,15 +37,15 @@ measurement_db = gcpy.gcdb.readDir('ANOTHER_DIRECTORY_YOU_WANT_TO_IMPORT', db = 
 
 There are predefined functions to compute glow curve parameters like the netto photon counts
 ```
-db.update(gcpy.gcana.calcGCparams('time_sec', 'PhCount'))
+measurement_db.update(gcpy.gcana.calcGCparams('time_sec', 'PhCount'))
 ```
 to perform the temperature reconstruction (please note that you need to specify the number of peaks here!)
 ```
-db.update(gcpy.gcana.calcTreco('time_sec', 'PhCount', peaks=3))
+measurement_db.update(gcpy.gcana.calcTreco('time_sec', 'PhCount', peaks=3))
 ```
 and the glow curve deconvolution
 ```
-db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
+measurement_db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
 ```
 They update the documents within the database automatically.
 
@@ -54,12 +54,25 @@ They update the documents within the database automatically.
 
 You can access a list of all documents (measurements) with
 ```
-list_of_all_meas = db.all()
+list_of_measurements = db.all()
 ```
+You can use this list e.g. to create and save glow curve plots:
+```
+import matplotlib.pyplot as plt
+for measurement in list_of_measurements:
+  plt.plot(measurement['time_sec'], measurement['PhCount'], label='Measurement')
+  plt.xlabel('$t$ in s')
+  plt.ylabel('$N$ in $\\mathrm{\\frac{1}{5\\,ms}}$)
+  plt.legend(loc='upper right')
+  plt.savefig('gc_plot_file_%s.pdf'%measurement['filename']) 
+  # this saves each plot with its individual filename
+  plt.clf()
+```
+
 You can use this to create e.g. a pandas DataFrame
 ```
 import pandas as pd
-df = pd.DataFrame(list_of_all_meas)
+measurements_dataframe = pd.DataFrame(list_of_all_meas)
 ```
 to perform further analysis tasks.
 
@@ -85,8 +98,8 @@ table content
 If a line does not contain a key-value pair but only one value, it will be named ```UNKNOWN_i``` where ```i``` is a increasing index for values without label. You may replace them later on in your analysis.
 To import a folder containing measurements in legacy format, you can call 
 ```
-db = gcpy.gcdb.newDB()
-db.insert_multiple(gcdb.prototypeIItoJson(dirPath))
+measurement_db = gcpy.gcdb.newDB()
+measurement_db.insert_multiple(gcdb.prototypeIItoJson(dirPath))
 ```
 From here you can continue as described above.
 

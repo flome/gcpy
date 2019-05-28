@@ -66,7 +66,7 @@ def newDB(store = None, mode="overwrite"):
         # if no store is passed, use the in-memory version
         return TinyDB(storage=MemoryStorage)
 
-def prototypeIItoJson(files2import):
+def prototypeIItoJson(files2import, delimiter="="):
     """
     Convenience function to convert data from old Prototype II TXT format to json.
     
@@ -86,17 +86,17 @@ def prototypeIItoJson(files2import):
     if isinstance(files2import, list):
         for file in files2import:
             if file.endswith(".TXT") or file.endswith(".txt"):
-                docs.append(_prototypeIItoJson(file))
+                docs.append(_prototypeIItoJson(file, delimiter))
     elif os.path.isdir(files2import):
         for dirs, subdirs, files in os.walk(files2import):
             for file in files:
                 if file.endswith(".TXT") or file.endswith(".txt"):
-                    docs.append(_prototypeIItoJson(os.path.join(dirs, file)))
+                    docs.append(_prototypeIItoJson(os.path.join(dirs, file), delimiter))
     elif os.path.isfile(files2import):
-        docs.append(_prototypeIItoJson(files2import))
+        docs.append(_prototypeIItoJson(files2import, delimiter))
     return docs
 
-def _prototypeIItoJson(file):
+def _prototypeIItoJson(file, delimiter="="):
     """
     Internal helper function for prototypeIItoJson
     """
@@ -120,13 +120,23 @@ def _prototypeIItoJson(file):
                     
                     tableContent += line.replace(',', '.')
                 
-                tableContent = pd.read_csv(io.StringIO(tableContent), delimiter="\t")
-                for key in tableContent:
-                    doc[key] = [x.item() for x in tableContent[key].values]
+                if "INFO" in tableTitle:
+                    for contentLine in tableContent.split('\n'):
+                        itemTitle = contentLine[0:contentLine.find(delimiter)].strip()
+                        itemContent = contentLine[contentLine.find(delimiter)+1:].strip()
+                        doc[itemTitle] = itemContent
+                else:
+                    tableContent = pd.read_csv(io.StringIO(tableContent), delimiter="\t")
+                    for key in tableContent:
+                        
+                        try:
+                            doc[key] = [x.item() for x in tableContent[key].values]
+                        except:
+                            doc[key] = [x for x in tableContent[key].values]
                     
-            elif " " in line:
-                itemTitle = line[0:line.find(" ")+1].strip()
-                itemContent = line[line.find(" ")+1:].strip()
+            elif delimiter in line:
+                itemTitle = line[0:line.find(delimiter)+1].strip()
+                itemContent = line[line.find(delimiter)+1:].strip()
                 doc[itemTitle] = itemContent
 
             else:

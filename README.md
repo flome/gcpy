@@ -99,7 +99,7 @@ If a line does not contain a key-value pair but only one value, it will be named
 To import a folder containing measurements in legacy format, you can call 
 ```
 measurement_db = gcpy.gcdb.newDB()
-measurement_db.insert_multiple(gcdb.prototypeIItoJson(dirPath))
+measurement_db.insert_multiple(gcpy.gcdb.prototypeIItoJson(dirPath))
 ```
 From here you can continue as described above.
 

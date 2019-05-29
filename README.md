@@ -19,6 +19,15 @@ You can use gcpy in your project by importing it with
 import gcpy
 ```
 
+### Editable installation - contributing
+
+If you want to edit the gcpy source code, install it with 
+```
+pip install -e .
+```
+which will keep the files locally and changes on the source will be active immediately. 
+If you want to contribute, please contact one of the current contributors.
+
 ## Usage
 
 Simple examples to get started are provided in the ```examples``` folder.
@@ -34,6 +43,18 @@ To append new data to an existing data base, you can pass the object in the form
 ```
 measurement_db = gcpy.gcdb.readDir('ANOTHER_DIRECTORY_YOU_WANT_TO_IMPORT', db = measurement_db)
 ```
+
+You can access a list of all documents (measurements) with
+```
+list_of_measurements = measurement_db.all()
+```
+which you can use to create e.g. a pandas DataFrame
+```
+import pandas as pd
+measurements_dataframe = pd.DataFrame(list_of_all_meas)
+```
+to perform further analysis tasks.
+
 
 ### Glow curve analysis
 
@@ -65,17 +86,6 @@ for measurement in measurement_db:
   # this saves each plot with its individual filename
   plt.clf()
 ```
-
-You can access a list of all documents (measurements) with
-```
-list_of_measurements = measurement_db.all()
-```
-which you can use to create e.g. a pandas DataFrame
-```
-import pandas as pd
-measurements_dataframe = pd.DataFrame(list_of_all_meas)
-```
-to perform further analysis tasks.
 
 
 ## Legacy support

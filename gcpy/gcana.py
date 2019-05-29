@@ -81,7 +81,7 @@ def update(data, func, njobs=-1):
         data.write_back(results)
         return
 
-def stripArrays(data, exclude=None):
+def stripArrays(data, exclude=[]):
     """
     Deletes array entries except excluded ones to save memory
     
@@ -110,7 +110,7 @@ def stripArrays(data, exclude=None):
     for doc in docs:
         keys2del = []
         for key in doc:
-            if isinstance(doc[key], (np.ndarray, list)):
+            if isinstance(doc[key], (np.ndarray, list)) and key not in exclude:
                 keys2del.append(key)
 
         for key in keys2del:

@@ -175,8 +175,8 @@ def readFiles(files2load, db = None, store = None, mode="overwrite"):
 
     for file2load in files2load:
         with open(file2load, 'r') as ioWrapper2import:
-            data2import = json.load(ioWrapper2import)
-            data2import.update({'filename': file2load})
+            data2import = {'filename': os.path.basename(file2load), 'filedir': os.path.dirname(file2load)}
+            data2import.update(json.load(ioWrapper2import))
             db.insert(data2import)
     return db
 

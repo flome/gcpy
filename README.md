@@ -21,6 +21,8 @@ import gcpy
 
 ## Usage
 
+Simple examples to get started are provided in the ```examples``` folder.
+
 ### Load data
 To load data from a directory, you can call 
 
@@ -43,9 +45,9 @@ to perform the temperature reconstruction (please note that you need to specify 
 ```
 measurement_db.update(gcpy.gcana.calcTreco('time_sec', 'PhCount', peaks=3))
 ```
-and the glow curve deconvolution
+and the glow curve deconvolution (note the difference in the x-Axis!)
 ```
-measurement_db.update(gcpy.gcana.gcFit('time_sec', 'PhCount'))
+measurement_db.update(gcpy.gcana.gcFit('Treco_T', 'PhCount'))
 ```
 They update the documents within the database automatically.
 

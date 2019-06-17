@@ -18,7 +18,13 @@ output_path = "output_-_example03"
 import matplotlib.pyplot as plt
 for measurement in measurement_db:
 
+  ## here we set the plot style for the figures
+  ## the "print" style is better to use for any publication purpose like presentations
+  ## or printing
+  ## you can use the "screen" plot style for previews with plt.show(), this does not work with "print"
   gcpy.gcplot.setPlotStyle("print")
+
+  ## get a figure to plot to
   fig = gcpy.gcplot.getStyledFigure()
 
   plt.plot(measurement['time_sec'], measurement['PhCount'], label='Measurement')

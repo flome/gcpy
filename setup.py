@@ -18,7 +18,8 @@ setup(
         "numba >= 0.43",
         "peakutils",
         "uncertainties",
-        "xlwt"
+        "xlwt",
+        "xlrd"
     ], #external packages as dependencies
     test_suite='nose.collector',
     tests_require=['nose']  

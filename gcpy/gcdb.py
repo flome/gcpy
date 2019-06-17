@@ -166,18 +166,20 @@ def readFiles(files2load, db = None, store = None, mode="overwrite"):
     db
         TinyDB instance containing the loaded files
     """
-
     # get a fresh tinydb instance and insert the jsonified file
     if db is None:
         db = newDB(store, mode)
     if not isinstance(files2load, list):
         files2load = [files2load]
 
-    for file2load in files2load:
+    data2import = []
+    for i, file2load in enumerate(files2load):
         with open(file2load, 'r') as ioWrapper2import:
-            data2import = {'filename': os.path.basename(file2load), 'filedir': os.path.dirname(file2load)}
-            data2import.update(json.load(ioWrapper2import))
-            db.insert(data2import)
+            
+            data2import.append({'filename': os.path.basename(file2load), 'filedir': os.path.dirname(file2load)})
+            data2import[-1].update(json.load(ioWrapper2import))
+    
+    db.insert_multiple(data2import)
     return db
 
 def readDir(dir2load, depth = None, db = None, store = None, mode="overwrite"):
@@ -211,6 +213,7 @@ def readDir(dir2load, depth = None, db = None, store = None, mode="overwrite"):
     db
         TinyDB instance containing the loaded files
     """
+
     if not os.path.isdir(dir2load):
         raise AttributeError("Directory is not accessible. Maybe incorrect name?")
     if db is None:

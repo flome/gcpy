@@ -3,7 +3,7 @@ import os
 
 setup(
     name='gcpy',
-    version='0.1.1',
+    version='0.1.2',
     description='A python package for glow curve analysis',
     author='Florian Mentzel',
     author_email='florian.mentzel@tu-dortmund.com',

@@ -45,16 +45,27 @@ def analysis(data):
     # prepare the plot, first get a styled figure
     fig = gcpy.gcplot.getStyledFigure()
 
+    # plot the arrays from the glow curve fit. If higher resolution is required, you will need to use the
+    # utils.kitis2006 and utils.backgroundFunction functions with a linspace and the fit parameters
     plt.plot(data['gcfit_T'], data['gcfit_nPhotons'], '.', label='Measurement')
     plt.plot(data['gcfit_T'], data['gcfit_gcd'], 'k-', label='Glow curve fit')
     for peak in [2,3,4,5]:
-        plt.plot(data['gcfit_T'], data['gcfit_gcd_peak%s'%peak], linestyle='--', label='Glow peaks' if peak == 2 else "__nolabel__")
+        plt.plot(data['gcfit_T'], data['gcfit_gcd_peak%s'%peak], linestyle='--', 
+        label='Glow peaks' if peak == 2 else "__nolabel__" # --> this is a nice trick to include only one entry in the legend if desired
+        )
     plt.plot(data['gcfit_T'], data['gcfit_gcd_bg'], 'k:', label='Background fit')
 
+    # add labels
     plt.xlabel('$T$ in K')
     plt.ylabel('$N$ in $\\mathrm{\\frac{1}{2.5\\,K}}$')
+    
+    # add the legend below the TL-DOS label
     plt.legend(loc=2, bbox_to_anchor=(0.01, 0.92))
     plt.savefig(output_path+'/curve_%s.png'%data.name)
+
+    # clean up memory
+    fig.clf()
+    plt.close(fig)
 
     # return the data entry
     return data

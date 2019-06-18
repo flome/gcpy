@@ -99,7 +99,7 @@ def stripArrays(data, exclude=[]):
         input data minus entries which had arrays
 
     """ 
-    print(data)
+
     if isinstance(data, pd.Series):
         docs = [data.to_dict()]
     elif isinstance(data, dict):

@@ -99,8 +99,10 @@ def stripArrays(data, exclude=[]):
         input data minus entries which had arrays
 
     """ 
-
-    if isinstance(data, dict):
+    print(data)
+    if isinstance(data, pd.Series):
+        docs = [data.to_dict()]
+    elif isinstance(data, dict):
         docs = [data]
     elif isinstance(data, list):
         docs = data
@@ -116,7 +118,9 @@ def stripArrays(data, exclude=[]):
         for key in keys2del:
             del doc[key]
     
-    if isinstance(data, dict):
+    if isinstance(data, pd.Series):
+        return pd.Series(docs[0])
+    elif isinstance(data, dict):
         return docs[0]
     elif isinstance(data, list):
         return docs
@@ -507,7 +511,15 @@ def calcTreco(x, y, peaks = 3):
     results['Treco_alpha'] = TfitParams[1]
     results['Treco_alpha_std_dev'] = np.sqrt(TfitCov[1, 1])
 
-    results["Treco_T"] = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
+    T = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
+    results["Treco_T(t)"] = T
+    binWidth = 2.5
+    results['Treco_binWidth'] = 2.5
+        
+    gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
+    results["Treco_T"] = gcTemp
+    gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)
+    results['Treco_PhCount'] = gcPhotons
 
     return results
 
@@ -574,8 +586,8 @@ def gcFit(x, y):
         # return lambda data: gcFit(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(gcFit(data[x], data[y]))
 
     results = {}
-    T = np.array(x)
-    tPhotons = np.array(y)
+    gcTemp = np.array(x)
+    gcPhotons = np.array(y)
 
     ################################################################################################
     errors_kitis1998 = 0
@@ -584,8 +596,8 @@ def gcFit(x, y):
 
     binWidth = 2.5
         
-    gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
-    gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)
+    #gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
+    #gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)
 
     upperTCut = 580
     lowerTCut = 350

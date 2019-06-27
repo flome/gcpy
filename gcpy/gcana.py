@@ -210,9 +210,9 @@ def calcGCparams(x, y):
     results['gc_NtRoI'] = integral
 
     # add results to data frame
-    results['gc_Nbg_m'] = (np.mean(y[x > RoI_up_TU])-np.mean(y[x < RoI_low_TU]))/(RoI_up_TU-RoI_low_TU)
+    results['gc_Nbg_m'] = (np.mean(y[x > RoI_up_TU])-np.mean(y[x < RoI_low_TU])) / (RoI_up_TU-RoI_low_TU)
     results['gc_Nbg_b'] = np.mean(y[x < RoI_low_TU])-results['gc_Nbg_m']*RoI_low_TU
-    results['gc_Nbg'] = bgROI + (RoI_up_TU-RoI_low_TU)/results['gc_tBinSize']*(np.mean(y[x > RoI_up_TU])+0.5*np.mean(y[x < RoI_low_TU]))
+    results['gc_Nbg'] = bgROI + (RoI_up_TU-RoI_low_TU)*0.5*1/results['gc_tBinSize']*(np.mean(y[x > RoI_up_TU])+np.mean(y[x < RoI_low_TU]))
     results['gc_Nsig'] = results['gc_Ntot'] - results['gc_Nbg']
 
     #### calculate cumulated sums ######

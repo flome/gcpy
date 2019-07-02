@@ -61,14 +61,14 @@ def unp_exponentialIm2(x, a, b, c, d):
 
 def exponential_tpre_peak2(x, a, b, c, d):
     return a*np.exp(b*x)+c*np.exp(d*x)
-  
-  
+
+
 def gaussian(x, mu, sigma, I):
     y = I*np.exp(-(x-mu)**2/2/sigma**2)
     return y
-    
+
 # definition of a thee peak gaussian function with constant background
-@jit(nopython=True)
+#@jit(nopython=True)
 def gaussianMultiPeak3(t, dx2, dx3, x4, sig2, dsig3, dsig4, I2, I3, I4, c):
     x3 = x4-dx3
     x2 = x3-dx2
@@ -82,8 +82,8 @@ def gaussianMultiPeak3(t, dx2, dx3, x4, sig2, dsig3, dsig4, I2, I3, I4, c):
     return I
 
 # definition of a four peak gaussian function with constant background
-@jit(nopython=True)
-def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, I3, I4, bg_x1, bg_x2 ,bg_y1,  bg_y2):
+#@jit(nopython=True)
+def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, I3, I4,bg_y1,  bg_y2):
     x3 = x4-dx3
     x2 = x3-dx2
     x1 = x2-dx1
@@ -94,26 +94,27 @@ def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, 
     I += I2*np.exp(-(t-x2)*(t-x2)/(2*sig2*sig2))
     I += I3*np.exp(-(t-x3)*(t-x3)/(2*sig3*sig3))
     I += I4*np.exp(-(t-x4)*(t-x4)/(2*sig4*sig4))
-    I += bg_Treco(t, bg_x1, bg_x2, bg_y1, bg_y2)
+    I += bg_Treco(t, bg_y1, bg_y2)
 
     return I
 
-def bg_Treco(t, x1, x2, y1, y2):
-    if isinstance(t, np.ndarray):
-        return np.where(t < x1, y1, np.where(t > x2, y2, y1+(y2-y1)/(x2-x1)*(t-x1)))
-    elif isinstance(t, float):
-        if t < x1:
-            return y1
-        elif t > x2:
-            return y2
-        else:
-            return y1+(y2-y1)/(x2-x1)*(t-x1)
-    else:
-        raise TypeError("Type passed was %s, expected float or np.array"%(t.dtype))
+def bg_Treco(t, y1, y2):
+    return t*(y2-y1)/t.max()+y1
+    # if isinstance(t, np.ndarray):
+    #     return np.where(t < x1, y1, np.where(t > x2, y2, y1+(y2-y1)/(x2-x1)*(t-x1)))
+    # elif isinstance(t, float):
+    #     if t < x1:
+    #         return y1
+    #     elif t > x2:
+    #         return y2
+    #     else:
+    #         return y1+(y2-y1)/(x2-x1)*(t-x1)
+    # else:
+    #     raise TypeError("Type passed was %s, expected float or np.array"%(t.dtype))
 
 
 def rebinHistRescale(x_old,y_old,x_new=[],rebinFactor=0):
-    if len(x_new) > 0:        
+    if len(x_new) > 0:
         indices = np.digitize(x_old,x_new)
         y_rebin = np.append([0],[y_old[indices == i].sum()/(x_new[i]-x_new[i-1]) for i in range(1, len(x_new))])
     return y_rebin
@@ -126,18 +127,18 @@ def calcRedChisq(yTrue, yFit, sigmaTrue, dof=1.):
 # @jit(nopython=True)
 def exponentialHeating(t, T0, alpha, Tg = 573.15):
     """
-    Describes the heat transition by contact to a hot plate. 
+    Describes the heat transition by contact to a hot plate.
 
     Parameters
     ---------
-    
-    t	
+
+    t
         time point, may be an array
-    T0	
+    T0
         detector temperatur in K before heating starts
-    alpha	
+    alpha
         heating coefficient
-    Tg	
+    Tg
         Heater plate temperature in K (default: K = 573.15K)
 
     Returns
@@ -157,14 +158,14 @@ def invertExponentialHeating(T, T0, alpha, Tg = 573.15):
 
     Parameters
     ---------
-    
-    T	
+
+    T
         Temperature, may be an array
-    T0	
+    T0
         detector temperatur in K before heating starts
-    alpha	
+    alpha
         heating coefficient
-    Tg	
+    Tg
         Heater plate temperature in K (default: K = 573.15K)
 
     Returns
@@ -174,13 +175,13 @@ def invertExponentialHeating(T, T0, alpha, Tg = 573.15):
         time point corresponding to the input time point(s)
     """
 
-    t = np.log((Tg-T0)/(Tg-T))/alpha 
+    t = np.log((Tg-T0)/(Tg-T))/alpha
     return t
 
 def kitis1998(T, Tm, Im, E):
     k = 8.61733e-05 ; #Boltzmann constant k_B[eV/K]
-    arg = E*(T-Tm)/(k*T*Tm);		
-    
+    arg = E*(T-Tm)/(k*T*Tm);
+
     return Im*np.exp(1.+arg-(T/Tm)**2*np.exp(arg)*(1.-2*k*T/E)-2*k*Tm/E)
 
 def ckitis2006(T, Tm, Im, E, Tg = 573.15):
@@ -214,7 +215,7 @@ def factorial(n):
 def kitis2006(T, Tm, Im, E, Tg = 573.15):
 
     TLintensity = -1*np.ones(len(T))
-    k = 8.61733e-05 
+    k = 8.61733e-05
 
     for i,Ti in enumerate(T):
 
@@ -236,7 +237,7 @@ def kitis2006(T, Tm, Im, E, Tg = 573.15):
                 Zm_asa += 0.5*np.power(-1,int(zm)+1)*factorial(int(zm)+1)*np.power((k*Tm)/E,int(zm)+1)*(np.power(Tg/(Tg-Tm),int(zm)+2)-1)
 
                 TLintensity[i] = Im*np.exp(-1*E*(Tm-Ti)/(k*Ti*Tm) + (Tg-Tm)/Tm * (Zm_asa - Ti/Tm*np.exp(-1*E*(Tm-Ti)/(k*Ti*Tm))*Z_asa))
-            
+
             else:
 
                 Z1_csa = 0.5772156649 + np.log(np.abs(E/(k*Ti)*(Ti-Tg)/Tg))
@@ -255,9 +256,8 @@ def kitis2006(T, Tm, Im, E, Tg = 573.15):
 
                 Z2_csa += 0.5*np.power(-1,int(z)+1)*factorial(int(z)+1)*np.power(k*Ti/E,int(z)+1)
                 Z2m_csa += 0.5*np.power(-1,int(zm)+1)*factorial(int(zm)+1)*np.power(k*Tm/E,int(zm)+1)
-                
+
                 TLintensity[i] = Im*np.exp(-1*E*(Tm-Ti)/(k*Ti*Tm) - E*(Tg-Tm)/(k*np.power(Tm,2)) * np.exp(E*(Tg-Tm)/(k*Tm*Tg))*(Z1m_csa-Z1_csa) - (Tg-Tm)/Tm *(Z2m_csa - Z2_csa*Ti/Tm * np.exp(-1*E*(Tm-Ti)/(k*Ti*Tm))))
 
     TLintensity[TLintensity > Im] = 0
     return TLintensity
-

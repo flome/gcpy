@@ -42,24 +42,24 @@ def worker(doc, func):
 
 def update(data, func, njobs=-1):
     """
-    Use a function to update given data using one or more threads 
-    
+    Use a function to update given data using one or more threads
+
     Parameters
     ---------
     data
         data to apply function to
-    
+
     func
         function to be applied
 
     njobs
         integer (default=-1). If -1, all available processors are used, otherwise the specified number of workers is launched
-    
+
     Returns
     ----------
     The function updates the data and does not return data
 
-    """ 
+    """
     pool = multiprocessing.Pool(processes=njobs if njobs != -1 else multiprocessing.cpu_count()-1)
 
     if isinstance(data, dict):
@@ -84,21 +84,21 @@ def update(data, func, njobs=-1):
 def stripArrays(data, exclude=[]):
     """
     Deletes array entries except excluded ones to save memory
-    
+
     Parameters
     ---------
     data
         data base or list of documents
     exclude
         list of array names to keep
-    
+
     Returns
     ---------
-    
+
     data
         input data minus entries which had arrays
 
-    """ 
+    """
 
     if isinstance(data, pd.Series):
         docs = [data.to_dict()]
@@ -117,7 +117,7 @@ def stripArrays(data, exclude=[]):
 
         for key in keys2del:
             del doc[key]
-    
+
     if isinstance(data, pd.Series):
         return pd.Series(docs[0])
     elif isinstance(data, dict):
@@ -128,20 +128,20 @@ def stripArrays(data, exclude=[]):
 
 def getTable(db, asDataFrame=True):
     """
-    Returns a table of data from the data base. 
-    
+    Returns a table of data from the data base.
+
     Parameters
     ---------
     db
         data base or list of documents to get the parameters from
-    
+
     Returns
     ---------
-    
+
     data
         pandas DataFrame
 
-    """ 
+    """
 
     if asDataFrame:
         # if it is a list, some form of querying has happend, else get all documents
@@ -150,7 +150,7 @@ def getTable(db, asDataFrame=True):
 
         results = pd.DataFrame(db)
 
-    else: 
+    else:
         results = db.storage.memory
 
     return results
@@ -159,7 +159,7 @@ def getTable(db, asDataFrame=True):
 def calcGCparams(x, y):
     """
     Compute standard parameters directly from the glow curve
-    
+
     Parameters
     ---------
     x
@@ -182,7 +182,7 @@ def calcGCparams(x, y):
     results = {}
     x = np.array(x)
     y = np.array(y)
-   
+
     #### Curve data #####
     nphotonMean = y.mean()
     nphotonMax = y.max()
@@ -239,7 +239,7 @@ class calcGCparamsWrapper(object):
 def calcRoI(x, y, iterations = 2):
     """
     Compute the RoI for given x and y
-    
+
     Parameters
     ---------
     x
@@ -257,14 +257,14 @@ def calcRoI(x, y, iterations = 2):
         dictionary containing the results of the RoI calculation
 
     """
-    
+
     # special case: only column names are passed. In that case, a new callable is returned using those columns if called with a data set
     if isinstance(x, str):
         return lambda data: calcRoI(data[x], data[y]) if isinstance(data, pd.DataFrame)  else data.update(calcRoI(data[x], data[y]))
 
     x = np.array(x)
     y = np.array(y)
-        
+
     # window size for the curve finder and correction for even numbers (can't be handled)
     window = int(len(x)/3)
     if np.mod(window,2)==0:
@@ -289,12 +289,12 @@ def calcRoI(x, y, iterations = 2):
 
 
     for i in range(iterations):
-        # refine ROI 
+        # refine ROI
         meanValLeft = smoothed[x < x[leftSide]].mean()
         while (smoothed[leftSide] > meanValLeft and leftSide > 0):
             leftSide -= 1
 
-        meanValRight = smoothed[x > x[rightSide]].mean()    
+        meanValRight = smoothed[x > x[rightSide]].mean()
         while (smoothed[rightSide] > meanValRight and rightSide < (len(x)-1)):
             rightSide += 1
 
@@ -349,7 +349,7 @@ def calcTreco(x, y, peaks = 3):
         tRoI = np.array(t[(t>RoI_low) & (t<RoI_high)])
         tPhotonsRoI = np.array(tPhotons[(t>RoI_low) & (t<RoI_high)])
     except:
-        Warning("Error during RoI detection for Treco!")
+        print("Error during RoI detection for Treco!")
         results["Treco_error"] = True
         return results
 
@@ -404,17 +404,17 @@ def calcTreco(x, y, peaks = 3):
         p0 = np.array([(RoI_high-RoI_low)/3, (RoI_high-RoI_low)/4, (RoI_high-RoI_low)/4, RoI_high,
                         RoI_len/8, 0, 0, 0,
                         0,tPhotons.max(),tPhotons.max(),tPhotons.max(),
-                        tPhotons[np.where(t>RoI_high)[0]].mean()
+                        tPhotons[np.where(t<RoI_low)[0]].mean(), tPhotons[np.where(t>RoI_high)[0]].mean() #RoI_low, RoI_high,
                         ])
         limitsLow=np.array([(RoI_high-RoI_low)/8, (RoI_high-RoI_low)/8,(RoI_high-RoI_low)/8,RoI_high-(RoI_high-RoI_low)/4,
                             0.1, 0, 0, 0,
                             0,tPhotons.max()/4 ,tPhotons.max()/3, tPhotons.max()/3,
-                            0
+                            0, 0#, 0 , 0
                             ])
         limitsHigh=np.array([(RoI_high-RoI_low)/3, (RoI_high-RoI_low)/3,(RoI_high-RoI_low)/3,RoI_high,
                             RoI_len/6, 0.2, 0.2, 0.2,
                             np.inf, np.inf, np.inf, np.inf,
-                            np.inf
+                            np.inf, np.inf#, np.inf, np.inf
                             ])
         fitFunction = utils.gaussianMultiPeak4
 
@@ -422,17 +422,17 @@ def calcTreco(x, y, peaks = 3):
     try:
         # try to use the determined peaks as start values except the given ones
         params, cov = curve_fit(
-                fitFunction, 
-                t, tPhotons, 
+                fitFunction,
+                t, tPhotons,
                 p0 = p0, bounds=[limitsLow, limitsHigh],
             )
         chi = utils.calcRedChisq(tPhotons, fitFunction(t,*params), np.sqrt(tPhotons), len(tPhotons)-len(params))
         results["Treco_performed"] = True
     except Exception as e:
-        Warning('Error in temperature reconstruction!')
+        print('--> Error in temperature reconstruction! Error message: %s'%(str(e)))
         results["Treco_error"] = True
         return results
-    
+
     # write the params and errors to the curve
     results['Treco_redChi2'] = chi
     if len(peakIndices) > 3:
@@ -450,13 +450,13 @@ def calcTreco(x, y, peaks = 3):
 
     # write sigmas
     results['Treco_sigma3'] = params[3 + 2*param_offset]
-    
+
     results['Treco_sigma3_std_dev'] = np.sqrt(cov[3 + 2*param_offset, 3 + 2*param_offset])
     results['Treco_sigma4'] = results['Treco_sigma3'] + params[1 + 3 + 2*param_offset]
     results['Treco_sigma4_std_dev'] = np.sqrt(results['Treco_sigma3_std_dev']**2 + np.sqrt(cov[1 + 3 + 2*param_offset , 1 + 3 + 2*param_offset])**2)
     results['Treco_sigma5'] = results['Treco_sigma4'] + params[2 + 3 + 2*param_offset]
     results['Treco_sigma5_std_dev'] = np.sqrt(results['Treco_sigma4_std_dev']**2 + np.sqrt(cov[2 + 3 + 2*param_offset, 2 + 3 + 2*param_offset])**2)
-    
+
     # write heights
     results['Treco_I5'] = params[2 + 6 + 3*param_offset]
     results['Treco_I5_std_dev'] = np.sqrt(cov[2 + 6 + 3*param_offset, 2 + 6 + 3*param_offset])
@@ -466,8 +466,12 @@ def calcTreco(x, y, peaks = 3):
     results['Treco_I3_std_dev'] = np.sqrt(cov[6 + 3*param_offset, 6 + 3*param_offset])
 
     # write background
-    results['Treco_bg'] = params[9 + 3*param_offset]
-    results['Treco_bg_std_dev'] = np.sqrt(cov[9 + 3*param_offset, 9 + 3*param_offset])
+    #results['Treco_bg_x1'] = params[9 + 3*param_offset]
+    #results['Treco_bg_x2'] = params[10 + 3*param_offset]
+    results['Treco_bg_y1'] = params[9 + 3*param_offset]
+    results['Treco_bg_y2'] = params[10 + 3*param_offset]
+    #results['Treco_bg'] = params[9 + 3*param_offset]
+    #results['Treco_bg_std_dev'] = np.sqrt(cov[9 + 3*param_offset, 9 + 3*param_offset])
 
     # additional entries for 4 peaks
     if len(peakIndices) > 3:
@@ -486,8 +490,8 @@ def calcTreco(x, y, peaks = 3):
 
         results['Treco_I2'] = params[8]
         results['Treco_I2_std_dev'] = np.sqrt(cov[8,8])
-    
-    
+
+
     # define known peak temperatures
     peakTemperatures = utils.peakTemps
     peakTimes = np.array([results['Treco_t3'], results['Treco_t4'], results['Treco_t5']])
@@ -513,9 +517,9 @@ def calcTreco(x, y, peaks = 3):
 
     T = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
     results["Treco_T(t)"] = T
-    binWidth = 2.5
-    results['Treco_binWidth'] = 2.5
-        
+    binWidth = 1
+    results['Treco_binWidth'] = 1
+
     gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
     results["Treco_T"] = gcTemp
     gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)
@@ -538,7 +542,7 @@ class calcTrecoWrapper(object):
     def __call__(self, data):
         return data.update(calcTreco(data[self.x], data[self.y], self.peaks))
 
-@jit(nopython=False)
+#@jit(nopython=False)
 def fitmethod_kitis98(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, C, D):
         I = 0
         I += utils.kitis1998(x, T1, I1, E1)
@@ -547,10 +551,10 @@ def fitmethod_kitis98(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, 
         I += utils.kitis1998(x, T4, I4, E4)
         bg = utils.backgroundFunction(x, A, B, C, D)
         bg = np.where(bg<0,0,bg)
-        
+
         return I+bg
 
-@jit(nopython=False)
+#@jit(nopython=False)
 def fitmethod_kitis06(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, C, D):
     I = 0
     I += utils.ckitis2006(x, T1, I1, E1)
@@ -559,7 +563,7 @@ def fitmethod_kitis06(x, T1, T2, T3, T4, I1, I2, I3, I4, E1, E2, E3, E4 , A, B, 
     I += utils.ckitis2006(x, T4, I4, E4)
     bg = utils.backgroundFunction(x, A, B, C, D)
     bg = np.where(bg<0,0,bg)
-    
+
     return I+bg
 
 ## Glow curve fit
@@ -574,7 +578,7 @@ def gcFit(x, y):
         array-like or string. If array-like, used as x-axis of analysis, should be temperature array from Treco. If string, the call will return a callable to be applied to a data set containing that x column
     y
         array-like or string. If array-like, used as y-axis of analysis, typically photon counts of measurement. If string, the call will return a callable to be applied to a data set containing that y column
-    
+
     Returns
     -------
 
@@ -594,8 +598,8 @@ def gcFit(x, y):
     errors_kitis2006 = 0
     errors_red_chi2_greater_10 = 0
 
-    binWidth = 2.5
-        
+    binWidth = 1
+
     #gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
     #gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)
 
@@ -612,15 +616,20 @@ def gcFit(x, y):
 
     # initialize start values
     startT = utils.peakTemps
-    startE = np.array([1.25,1.55,1.46,2.4])
     startI = np.array([100,gcPhotons.max()/3,gcPhotons.max()/2,0.9*gcPhotons.max()])
+    startE = np.array([1.25,1.55,1.46,2.4])
     startBg = np.array([100,gcTemp.max()+1,1e-15,1e-2])
     p0 = np.concatenate((startT, startI, startE, startBg))
-    
+
     bounds = ([startT[0]-10,startT[1]-10,startT[2]-10,startT[3]-10,
-            0,0,0,0,0.5,1,1,1,0,gcTemp.max()+1,0,0.0], #minima
+            0,0,0,0,
+            0.5,1,1.3,1,
+            0,gcTemp.max()+1,0,0.0], #minima
+
             [startT[0]+10,startT[1]+10,startT[2]+10,startT[3]+10,
-            np.inf,np.inf,np.inf,np.inf,2.3,3.5,3.4,4.5,np.inf,580,10,.1] #maxima
+            np.inf,np.inf,np.inf,np.inf,
+            2.3,3.5,3.4,4.5,
+            np.inf,580,10,.1] #maxima
             )
 
     # fit marker
@@ -629,29 +638,29 @@ def gcFit(x, y):
 
     # actual fit
     t0 = time.time()
-    
-    try:
-        params, cov = curve_fit(fitmethod_kitis98, gcTemp, gcPhotons, p0 = p0, 
-                                bounds = bounds,
-                                )
-        prefitVals = params
-    except Exception as e:
-        results["gcfit_prefit_error"] = True
+    #
+    # try:
+    #     params, cov = curve_fit(fitmethod_kitis98, gcTemp, gcPhotons, p0 = p0,
+    #                             bounds = bounds,
+    #                             )
+    #     prefitVals = params
+    # except Exception as e:
+    #     results["gcfit_prefit_error"] = True
+    #
+    #     Warning('Fit error kitis 98')
+    #
+    # if isinstance(prefitVals, np.ndarray):
+    #     p0 = prefitVals
 
-        Warning('Fit error kitis 98')
-    
-    if isinstance(prefitVals, np.ndarray):
-        p0 = prefitVals
-
     try:
-        params, cov = curve_fit(fitmethod_kitis06, gcTemp, gcPhotons, p0 = p0, 
+        params, cov = curve_fit(fitmethod_kitis06, gcTemp, gcPhotons, p0 = p0,
                                 bounds = bounds,
                                 )
     except Exception as e:
         Warning('Fit error kitis 06')
         results["gcfit_error"] = True
         return results
-    
+
     tcpu = round(1000*(time.time()-t0), 3)
 
     fitValues = params
@@ -666,7 +675,7 @@ def gcFit(x, y):
     results["gcfit_cpuTime"] = tcpu
     results["gcfit_redChi2"] = chiSquare
     Nsig =  0#unc.ufloat(0,0)
-    
+
     for peak in range(4):
         results["gcfit_Tm%s"%(peak+2)] = fitValues[peak]
         results["gcfit_Tm%s_std_dev"%(peak+2)] = fitErrors[peak]
@@ -676,14 +685,14 @@ def gcFit(x, y):
 
         results["gcfit_E%s"%(peak+2)] = fitValues[peak+8]
         results["gcfit_E%s_std_dev"%(peak+2)] = fitErrors[peak]+8
-        
+
         peakI = utils.ckitis2006(gcTemp, fitValues[peak], fitValues[peak+4], fitValues[peak+8])
         results["gcfit_gcd_peak%s"%(peak+2)] = peakI
 
         N_peakI = peakI[1:]*np.diff(gcTemp)
         results["gcfit_N%s"%(peak+2)] = np.sum(N_peakI)
         Nsig += np.sum(N_peakI)
-        
+
         results["gcfit_Nsig"] = Nsig
 
         uA = unc.ufloat(fitValues[-4], fitErrors[-4])
@@ -691,10 +700,10 @@ def gcFit(x, y):
         uC = unc.ufloat(fitValues[-2], fitErrors[-2])
         uD = unc.ufloat(fitValues[-1], fitErrors[-1])
         uIbg = (uA/(uB-gcTemp)+uC * unp.exp((gcTemp-300)*uD))
-        uIbg = np.where(unp.nominal_values(uIbg) < 0,0,uIbg) 
+        uIbg = np.where(unp.nominal_values(uIbg) < 0,0,uIbg)
 
         # uNbg = (uA/(uB-gcTemp[1:])+uC * unp.exp((gcTemp[1:]-300)*uD))*np.diff(gcTemp)
-        # uNbg = np.where(unp.nominal_values(uNbg) < 0,0,uNbg) 
+        # uNbg = np.where(unp.nominal_values(uNbg) < 0,0,uNbg)
         results["gcfit_gcd_bg"] = unp.nominal_values(uIbg)
         uNbg = uIbg[1:]*np.diff(gcTemp)
 
@@ -706,11 +715,11 @@ def gcFit(x, y):
         results["gcfit_c_std_dev"] = fitErrors[-2]
         results["gcfit_d"] = fitValues[-1]
         results["gcfit_d_std_dev"] = fitErrors[-1]
-        
+
         try:
             results["gcfit_Nbg"] = np.sum(uNbg).nominal_value
             results["gcfit_Nbg_std_dev"] = np.sum(uNbg).std_dev
-        
+
             results["gcfit_Ntot"] = (Nsig+np.sum(uNbg)).nominal_value
             results["gcfit_Ntot_std_dev"] = (Nsig+np.sum(uNbg)).std_dev
 
@@ -733,5 +742,3 @@ class gcFitWrapper(object):
 if __name__ == "__main__":
 
     print("A module for glow curve analysis.")
-
-    

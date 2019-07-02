@@ -83,7 +83,7 @@ def gaussianMultiPeak3(t, dx2, dx3, x4, sig2, dsig3, dsig4, I2, I3, I4, c):
 
 # definition of a four peak gaussian function with constant background
 @jit(nopython=True)
-def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, I3, I4, c):
+def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, I3, I4, bg_x1, bg_x2 ,bg_y1,  bg_y2):
     x3 = x4-dx3
     x2 = x3-dx2
     x1 = x2-dx1
@@ -94,9 +94,23 @@ def gaussianMultiPeak4(t, dx1, dx2, dx3, x4, sig1, dsig2, dsig3, dsig4, I1, I2, 
     I += I2*np.exp(-(t-x2)*(t-x2)/(2*sig2*sig2))
     I += I3*np.exp(-(t-x3)*(t-x3)/(2*sig3*sig3))
     I += I4*np.exp(-(t-x4)*(t-x4)/(2*sig4*sig4))
-    I += c
+    I += bg_Treco(t, bg_x1, bg_x2, bg_y1, bg_y2)
 
     return I
+
+def bg_Treco(t, x1, x2, y1, y2):
+    if isinstance(t, np.ndarray):
+        return np.where(t < x1, y1, np.where(t > x2, y2, y1+(y2-y1)/(x2-x1)*(t-x1)))
+    elif isinstance(t, float):
+        if t < x1:
+            return y1
+        elif t > x2:
+            return y2
+        else:
+            return y1+(y2-y1)/(x2-x1)*(t-x1)
+    else:
+        raise TypeError("Type passed was %s, expected float or np.array"%(t.dtype))
+
 
 def rebinHistRescale(x_old,y_old,x_new=[],rebinFactor=0):
     if len(x_new) > 0:        

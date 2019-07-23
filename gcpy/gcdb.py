@@ -19,7 +19,7 @@ from tinydb import TinyDB
 from tinydb.storages import MemoryStorage
 
 # compression tools for saving disk space
-import pickle, gzip, bz2, sys, resource
+import pickle, gzip, bz2
 
 # import for prototypeII support
 import pandas as pd
@@ -65,6 +65,34 @@ def newDB(store = None, mode="overwrite"):
     else:
         # if no store is passed, use the in-memory version
         return TinyDB(storage=MemoryStorage)
+
+
+def loadReaderDBs(path):
+    """
+    Function to import current database format from json files to a dictionary
+    
+    Parameters
+    ---------
+    path
+        Directory of the database json files
+
+    Returns
+    ---------
+    database
+        combined dictionary containing sub-dicts with the databases
+
+    """
+    files = os.listdir(path)
+    database = {}
+    for file in files:
+        with open(os.path.join(path, file)) as sourcefile:
+            data = json.load(sourcefile)
+            name = file.split("_")[1].split(".")[0]
+            database[name] = data
+            print("imported db: %s"%name)
+    return database
+
+
 
 def prototypeIItoJson(files2import, delimiter="="):
     """
@@ -182,7 +210,7 @@ def readFiles(files2load, db = None, store = None, mode="overwrite"):
     db.insert_multiple(data2import)
     return db
 
-def readDir(dir2load, depth = None, db = None, store = None, mode="overwrite"):
+def readDir(dir2load, asDataFrame=False, depth = None, db = None, store = None, mode="overwrite"):
     """
     Function to import a directory of measurements.
 
@@ -199,6 +227,8 @@ def readDir(dir2load, depth = None, db = None, store = None, mode="overwrite"):
     ---------
     dir2load
         String that contains the path to the directory to be imported.
+    asDataFrame
+        If True, returns pandas DataFrame from database
     depth
         Either integer or None (default). If specified as integer, it can be used to limit the depth of subdirectories which are imported. None corresponds to 'import all levels', 1 corresponds to 'import root directory only'
     db
@@ -221,15 +251,20 @@ def readDir(dir2load, depth = None, db = None, store = None, mode="overwrite"):
     level = 0
 
     files_found = 0
+    files2import = []
     for root, dirs, files in os.walk(dir2load):
-        files2import = [os.path.join(root, file) for file in files if file.endswith('.json')]
+        files2import.extend([os.path.join(root, file) for file in files if file.endswith('.json')])
         files_found += len(files2import)
-        readFiles(files2import, db = db)
         level += 1
         if level == depth:
             del dirs[:]
+    readFiles(files2import, db = db)
+
     print(">> Imported %s glow curve files."%files_found)
-    return db
+    if asDataFrame:
+        return pd.DataFrame(db.all())
+    else:
+        return db
 
 
 def load(db2open):

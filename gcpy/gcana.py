@@ -156,6 +156,126 @@ def getTable(db, asDataFrame=True):
     return results
 
 
+def _get_timestamps(data, database):
+    name = data.name
+    ID = data['det_name']
+
+    try:
+        posttemper = database['posttemper'][ID]
+    except Exception as e:
+        data['info_posttemper_count'] = 0
+        print("WARNING: detector %s was not found in posttemper database (errorcode: %s)"%(data.name, e))
+        return data
+
+    posttemper_candidates = []
+    next_posttemper_entries = []
+    for posttemper_entry in posttemper:
+        if pd.to_datetime(data['meas_dateTime']) < pd.to_datetime(posttemper_entry['cycle_dateTime']):
+            next_posttemper_entries.append(posttemper_entry)
+        else:
+            posttemper_candidates.append(posttemper_entry)
+
+    if len(posttemper_candidates) < 1:
+        data['info_posttemper_count'] = 0
+        return data
+    
+    relevant_posttemper_entry = {'info_posttemper_'+key: posttemper_candidates[-1][key] for key in posttemper_candidates[-1].keys()}
+    data['info_posttemper_count'] = 1
+    
+    data = data.append(pd.Series(relevant_posttemper_entry))
+    data.name = name
+    
+    try:
+        irrad = database['irradiation'][ID]
+        irrad_candidates = []
+        for irrad_entry in irrad:
+            if pd.to_datetime(irrad_entry['dateTime']) < pd.to_datetime(data['info_posttemper_cycle_dateTime']) or \
+            pd.to_datetime(irrad_entry['dateTime']) > pd.to_datetime(data['meas_dateTime']):
+                continue
+            else:
+                irrad_candidates.append(irrad_entry)
+            
+        if len(irrad_candidates) == 0:
+            data['info_irrad_count'] = 1
+
+        elif len(irrad_candidates) == 1:
+            data['info_irrad_count'] = 1
+            relevant_irrad_entry = {'info_irrad_'+key: irrad_candidates[-1][key] for key in irrad_candidates[-1].keys()}
+            data = data.append(pd.Series(relevant_irrad_entry))
+            data.name = name
+
+        else:
+            data['info_irrad_count'] = len(irrad_candidates)
+            relevant_irrad_entry = {'info_irrad_'+key: irrad_candidates[-1][key] for key in irrad_candidates[-1].keys()}
+            data = data.append(pd.Series(relevant_irrad_entry))
+            data.name = name
+    except Exception as e:
+        data['info_irrad_count'] = 0
+        print("WARNING: detector %s was not found in irradiation database (errorcode: %s)"%(data.name, e))
+       
+    try:
+        pretemper = database['pretemper'][ID]
+        preheat_candidates = []
+        for preheat_entry in pretemper:
+            if pd.to_datetime(preheat_entry['cycle_dateTime']) < pd.to_datetime(data['info_posttemper_cycle_dateTime']) or \
+            pd.to_datetime(preheat_entry['cycle_dateTime']) > pd.to_datetime(data['meas_dateTime']):
+                continue
+            else:
+                preheat_candidates.append(preheat_entry)
+                
+        if len(preheat_candidates) == 0:
+            data['info_preheat_count'] = 0
+
+        elif len(preheat_candidates) == 1:
+            data['info_preheat_count'] = 1
+            relevant_preheat_entry = {'info_preheat_'+key: preheat_candidates[-1][key] for key in preheat_candidates[-1].keys()}
+            data = data.append(pd.Series(relevant_preheat_entry))
+            data.name = name
+        else:
+            print("WARNING: detector %s was preheated %s times"%(data.name, len(preheat_candidates)))
+            data['info_preheat_count'] = len(preheat_candidates)
+    
+    except Exception as e:
+        data['info_preheat_count'] = 0
+
+    return data
+
+def calcFadingTimes(data):
+    """
+    Compute fading times on data frame
+    
+    Parameters
+    ---------
+    data
+        DataFrame to perform computation on
+
+    Returns
+    ---------
+    data
+        DataFrame including the new columns
+
+    """
+    #mask = (data['info_irrad_count'] == 1) & (data['info_posttemper_count'] == 1)
+    #data = data[mask]
+
+    #entries = len(data)
+    #data = data.dropna(subset=['info_irrad_dateTime', 'info_posttemper_cycle_dateTime', 'meas_dateTime'])
+    #print("WARNING: dropped %s detectors due to lack of information"%(len(data)-entries))
+
+    data['info_preIrradFading'] = (pd.to_datetime(data['info_irrad_dateTime']) - pd.to_datetime(data['info_posttemper_cycle_dateTime'])).apply(pd.Timedelta.total_seconds) 
+    data['info_postIrradFading'] = (pd.to_datetime(data['meas_dateTime']) - pd.to_datetime(data['info_irrad_dateTime'])).apply(pd.Timedelta.total_seconds) 
+    data['info_totalFading'] = data['info_preIrradFading'] + data['info_postIrradFading']
+    return data
+
+
+def getTimestamps(data, database, calc_fadingTimes=False):
+    
+    data = data.apply(lambda x: _get_timestamps(x, database), axis=1)  
+    if calc_fadingTimes:
+        data = calcFadingTimes(data)
+    
+    return data
+
 def calcGCparams(x, y):
     """
     Compute standard parameters directly from the glow curve
@@ -197,34 +317,42 @@ def calcGCparams(x, y):
     roi = calcRoI(x, y)
     RoI_low_TU = x[roi['RoI_low']]
     RoI_up_TU = x[roi['RoI_high']]
-    results['gc_timeRoI_low'] = RoI_low_TU
-    results['gc_timeRoI_high'] = RoI_up_TU
-    results['gc_timeRoI_length'] =RoI_up_TU-RoI_low_TU
 
-    #### calc sig and bg counts #####
-    results['gc_tBinSize'] = x[1] - x[0]
-    bgROI = np.sum(y[x > RoI_up_TU])
-    bgROI += np.sum(y[x < RoI_low_TU])
-    integral = np.sum(y[x < RoI_up_TU])
-    integral -= np.sum(y[x < RoI_low_TU])
-    results['gc_NtRoI'] = integral
+    if (RoI_low_TU < RoI_up_TU):
+        try:
+            results['gc_timeRoI_low'] = RoI_low_TU
+            results['gc_timeRoI_high'] = RoI_up_TU
+            results['gc_timeRoI_length'] =RoI_up_TU-RoI_low_TU
 
-    # add results to data frame
-    results['gc_Nbg_m'] = (np.mean(y[x > RoI_up_TU])-np.mean(y[x < RoI_low_TU])) / (RoI_up_TU-RoI_low_TU)
-    results['gc_Nbg_b'] = np.mean(y[x < RoI_low_TU])-results['gc_Nbg_m']*RoI_low_TU
-    results['gc_Nbg'] = bgROI + (RoI_up_TU-RoI_low_TU)*0.5*1/results['gc_tBinSize']*(np.mean(y[x > RoI_up_TU])+np.mean(y[x < RoI_low_TU]))
-    results['gc_Nsig'] = results['gc_Ntot'] - results['gc_Nbg']
+            #### calc sig and bg counts #####
+            results['gc_tBinSize'] = x[1] - x[0]
+            bgROI = np.sum(y[x > RoI_up_TU])
+            bgROI += np.sum(y[x < RoI_low_TU])
+            integral = np.sum(y[x < RoI_up_TU])
+            integral -= np.sum(y[x < RoI_low_TU])
+            results['gc_NtRoI'] = integral
 
-    #### calculate cumulated sums ######
-    RoI_photons = y[x < RoI_up_TU]
-    tCumSum = x[x < RoI_up_TU]
-    RoI_photons = RoI_photons[tCumSum > RoI_low_TU]
-    tCumSum = x[x > RoI_low_TU]
+            # add results to data frame
+            results['gc_Nbg_m'] = (np.mean(y[x > RoI_up_TU])-np.mean(y[x < RoI_low_TU])) / (RoI_up_TU-RoI_low_TU)
+            results['gc_Nbg_b'] = np.mean(y[x < RoI_low_TU])-results['gc_Nbg_m']*RoI_low_TU
+            results['gc_Nbg'] = bgROI + (RoI_up_TU-RoI_low_TU)*0.5*1/results['gc_tBinSize']*(np.mean(y[x > RoI_up_TU])+np.mean(y[x < RoI_low_TU]))
+            results['gc_Nsig'] = results['gc_Ntot'] - results['gc_Nbg']
 
-    photonCumSum = RoI_photons.cumsum()
-    results['gc_t_nphotonFirstQuarter'] = tCumSum[np.where(photonCumSum <= 0.25*photonCumSum[-1])[0].max()]
-    results['gc_t_nphotonSecondQuarter'] = tCumSum[np.where(photonCumSum <= 0.50*photonCumSum[-1])[0].max()]
-    results['gc_t_nphotonThirdQuarter'] = tCumSum[np.where(photonCumSum <= 0.75*photonCumSum[-1])[0].max()]
+            #### calculate cumulated sums ######
+            RoI_photons = y[x < RoI_up_TU]
+            tCumSum = x[x < RoI_up_TU]
+            RoI_photons = RoI_photons[tCumSum > RoI_low_TU]
+            tCumSum = x[x > RoI_low_TU]
+
+            photonCumSum = RoI_photons.cumsum()
+            results['gc_t_nphotonFirstQuarter'] = tCumSum[np.where(photonCumSum <= 0.25*photonCumSum[-1])[0].max()]
+            results['gc_t_nphotonSecondQuarter'] = tCumSum[np.where(photonCumSum <= 0.50*photonCumSum[-1])[0].max()]
+            results['gc_t_nphotonThirdQuarter'] = tCumSum[np.where(photonCumSum <= 0.75*photonCumSum[-1])[0].max()]
+        except Exception as e:
+            import matplotlib.pyplot as plt
+            plt.plot(x, y)
+            plt.show()
+            raise e
 
     return results
 
@@ -513,8 +641,8 @@ def calcTreco(x, y, peaks = 3):
 
     T = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
     results["Treco_T(t)"] = T
-    binWidth = 2.5
-    results['Treco_binWidth'] = 2.5
+    binWidth = 1
+    results['Treco_binWidth'] = 1
         
     gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
     results["Treco_T"] = gcTemp
@@ -594,7 +722,7 @@ def gcFit(x, y):
     errors_kitis2006 = 0
     errors_red_chi2_greater_10 = 0
 
-    binWidth = 2.5
+    # binWidth = 2.5
         
     #gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
     #gcPhotons = utils.rebinHistRescale(T , tPhotons, gcTemp)

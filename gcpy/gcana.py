@@ -641,8 +641,8 @@ def calcTreco(x, y, peaks = 3):
 
     T = utils.exponentialHeating(t, TfitParams[0], TfitParams[1])
     results["Treco_T(t)"] = T
-    binWidth = 1
-    results['Treco_binWidth'] = 1
+    binWidth = 2.5
+    results['Treco_binWidth'] = 2.5
         
     gcTemp = np.linspace(T.min(), T.max(), int((T.max()- T.min())/binWidth))
     results["Treco_T"] = gcTemp

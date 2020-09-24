@@ -11,9 +11,14 @@ Attention: Tested with Ubuntu 16.04 and CentOS7, might fail on other platforms, 
 You can download this repository and install it using
 ```
 git clone https://github.com/flome/gcpy
-cd gcpy
-pip install .
+pip install gcpy
 ```
+
+If you use a python installation that is hosted by an administrator and not by you, you can install the package locally just for our user account:
+```
+pip install --user gcpy
+```
+
 You can use gcpy in your project by importing it with
 ```
 import gcpy

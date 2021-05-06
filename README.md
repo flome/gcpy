@@ -1,5 +1,7 @@
 
 # gcpy
+Development now here: https://gitlab.e4.physik.tu-dortmund.de/fmentzel/gcpy
+
 University project: glow curve analysis software for exponential heating.
 For questions and support please contact the maintainer Florian Mentzel (florian.mentzel@tu-dortmund.de).
 
